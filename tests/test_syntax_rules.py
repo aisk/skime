@@ -1,31 +1,34 @@
+import helper
 import pytest
 
-import helper
-
-from skime.macro import Macro, DynamicClosure
 from skime.compiler.parser import parse
-from skime.types.pair import Pair as pair
 from skime.errors import SyntaxError
+from skime.macro import DynamicClosure, Macro
+from skime.types.pair import Pair as pair
 
 
 def filter_dc(expr):
     if isinstance(expr, DynamicClosure):
         return filter_dc(expr.expression)
     if isinstance(expr, pair):
-        return pair(filter_dc(expr.first),
-                    filter_dc(expr.rest))
+        return pair(filter_dc(expr.first), filter_dc(expr.rest))
     return expr
+
 
 def macro(code):
     return Macro(None, parse(code))
+
+
 def trans(m, expr):
     return filter_dc(m.transform(None, parse(expr))[0])
+
 
 class TestSyntaxRules(object):
     """\
     Test syntax rules transformation without touching the env and
     lexical scoping related stuff.
     """
+
     def test_variable(self):
         m = macro("(() ((_ a) a))")
         assert trans(m, "(_ 5)") == 5
@@ -102,4 +105,3 @@ class TestSyntaxRules(object):
         assert trans(m, "(_ . 6)") == 6
         assert trans(m, "(_ 5 . 6)") == 6
         assert trans(m, "(_ 5 6 . 6)") == 6
-        

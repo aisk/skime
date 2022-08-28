@@ -1,11 +1,12 @@
-from ..types.symbol import Symbol as sym
-from ..types.pair   import Pair as pair
-
 from ..errors import ParseError
+from ..types.pair import Pair as pair
+from ..types.symbol import Symbol as sym
+
 
 def parse(text, name="__unknown__"):
     "Parse a piece of text."
     return Parser(text, name).parse()
+
 
 class Parser(object):
     "A simple recursive descent parser for Scheme."
@@ -13,7 +14,7 @@ class Parser(object):
     sym_quasiquote = sym("quasiquote")
     sym_unquote = sym("unquote")
     sym_unquote_slicing = sym("unquote-slicing")
-    
+
     def __init__(self, text, name="__unknown__"):
         self.text = text
         self.name = name
@@ -28,32 +29,32 @@ class Parser(object):
             self.report_error("Expecting end of code, but more code is got")
         return expr
 
-
     def parse_expr(self):
         def parse_pound():
-            if self.peak(idx=1) == 't':
+            if self.peak(idx=1) == "t":
                 self.pop(n=2)
                 return True
-            if self.peak(idx=1) == 'f':
+            if self.peak(idx=1) == "f":
                 self.pop(n=2)
                 return False
-            if self.peak(idx=1) == '(':
+            if self.peak(idx=1) == "(":
                 return self.parse_vector()
+
         def parse_number_or_symbol():
             if self.isdigit(self.peak(idx=1)):
                 return self.parse_number()
             return self.parse_symbol()
-            
+
         mapping = {
-            '#' : parse_pound,
-            '(' : self.parse_list,
-            "'" : self.parse_quote,
-            '`' : self.parse_quote,
-            ',' : self.parse_unquote,
-            '+' : parse_number_or_symbol,
-            '-' : parse_number_or_symbol,
-            '"' : self.parse_string
-            }
+            "#": parse_pound,
+            "(": self.parse_list,
+            "'": self.parse_quote,
+            "`": self.parse_quote,
+            ",": self.parse_unquote,
+            "+": parse_number_or_symbol,
+            "-": parse_number_or_symbol,
+            '"': self.parse_string,
+        }
 
         self.skip_all()
 
@@ -61,41 +62,40 @@ class Parser(object):
             raise ParseError("Nothing to be parsed.")
         ch = self.peak()
         routine = mapping.get(ch)
-        
+
         if routine is not None:
             return routine()
-        
+
         if self.isdigit(ch):
             return self.parse_number()
         return self.parse_symbol()
 
-
     def parse_number(self):
         sign1 = 1
-        if self.eat('-'):
+        if self.eat("-"):
             sign1 = -1
-        self.eat('+')
+        self.eat("+")
 
         num1 = self.parse_unum()
-        if self.eat('/'):
+        if self.eat("/"):
             num2 = self.parse_unum()
             if num2 is None:
                 self.report_error("Invalid number format, expecting denominator")
-            num1 = float(num1)/num2
-        if self.peak() in ['+', '-']:
+            num1 = float(num1) / num2
+        if self.peak() in ["+", "-"]:
             sign2 = 1
-            if self.eat('-'):
+            if self.eat("-"):
                 sign2 = -1
-            self.eat('+')
+            self.eat("+")
             num2 = self.parse_unum()
             if num2 is None:
                 num2 = 1
-            if not self.eat('i'):
+            if not self.eat("i"):
                 self.report_error("Invalid number format, expecting 'i' for complex")
             if num2 != 0:
-                num1 = num1 + sign2*num2*1j
+                num1 = num1 + sign2 * num2 * 1j
 
-        return sign1*num1
+        return sign1 * num1
 
     def parse_unum(self):
         "Parse an unsigned number."
@@ -103,7 +103,7 @@ class Parser(object):
         pos1 = self.pos
         while self.isdigit(self.peak()):
             self.pop()
-        if self.eat('.'):
+        if self.eat("."):
             isfloat = True
         while self.isdigit(self.peak()):
             self.pop()
@@ -115,22 +115,21 @@ class Parser(object):
         else:
             return int(self.text[pos1:pos2])
 
-
     def parse_list(self):
-        self.eat('(')
+        self.eat("(")
         elems = []
         while self.more():
             self.skip_all()
-            if self.peak() == ')':
+            if self.peak() == ")":
                 elems.append(None)
                 break
-            if self.peak() == '.' and self.peak(idx=1) != '.':
-                self.eat('.')
+            if self.peak() == "." and self.peak(idx=1) != ".":
+                self.eat(".")
                 elems.append(self.parse_expr())
                 self.skip_all()
                 break
             elems.append(self.parse_expr())
-        if not self.eat(')'):
+        if not self.eat(")"):
             self.report_error("Expecting right paren ')'.")
         first = elems.pop()
         for x in reversed(elems):
@@ -138,7 +137,7 @@ class Parser(object):
         return first
 
     def parse_quote(self):
-        if self.peak() == '\'':
+        if self.peak() == "'":
             s = Parser.sym_quote
         else:
             s = Parser.sym_quasiquote
@@ -146,54 +145,48 @@ class Parser(object):
         return pair(s, pair(self.parse_expr(), None))
 
     def parse_unquote(self):
-        self.eat(',')
-        if self.eat('@'):
-            return pair(Parser.sym_unquote_slicing,
-                        pair(self.parse_expr(), None))
-        return pair(Parser.sym_unquote,
-                    pair(self.parse_expr(), None))
+        self.eat(",")
+        if self.eat("@"):
+            return pair(Parser.sym_unquote_slicing, pair(self.parse_expr(), None))
+        return pair(Parser.sym_unquote, pair(self.parse_expr(), None))
 
     def parse_symbol(self):
         pos1 = self.pos
         self.pop()
-        while self.more() and \
-              not self.isspace(self.peak()) and \
-              not self.peak() in ['\'', ')', '(', ',', '@']:
+        while (
+            self.more()
+            and not self.isspace(self.peak())
+            and not self.peak() in ["'", ")", "(", ",", "@"]
+        ):
             self.pop()
         pos2 = self.pos
         return sym(self.text[pos1:pos2])
 
     def parse_string(self):
-        mappings = {
-            '"':'"',
-            '\\':'\\',
-            'n':'\n',
-            't':'\t'
-            }
-            
+        mappings = {'"': '"', "\\": "\\", "n": "\n", "t": "\t"}
+
         self.eat('"')
         strings = []
         pos1 = self.pos
         while self.more():
             if self.peak() == '"':
                 break
-            if self.peak() == '\\':
+            if self.peak() == "\\":
                 self.pop()
                 ch = self.peak()
                 if ch in mappings:
-                    strings.append(self.text[pos1:self.pos-1])
+                    strings.append(self.text[pos1 : self.pos - 1])
                     strings.append(mappings[ch])
                     self.pop()
                     pos1 = self.pos
             else:
-                if self.peak() == '\n':
+                if self.peak() == "\n":
                     self.line += 1
                 self.pop()
-        strings.append(self.text[pos1:self.pos])
+        strings.append(self.text[pos1 : self.pos])
         if not self.eat('"'):
             report_error("Expecting '\"' to end a string.")
-        return ''.join(strings)
-                
+        return "".join(strings)
 
     def parse_vector(self):
         pass
@@ -202,7 +195,7 @@ class Parser(object):
         "Skip all non-relevant characters."
         while True:
             self.skip_ws()
-            if self.peak() == ';':
+            if self.peak() == ";":
                 self.skip_comment()
             else:
                 break
@@ -210,7 +203,7 @@ class Parser(object):
     def skip_ws(self):
         "Skip whitespace."
         while self.more():
-            if self.eat('\n'):
+            if self.eat("\n"):
                 self.line += 1
             elif self.isspace(self.peak()):
                 self.pop()
@@ -219,8 +212,8 @@ class Parser(object):
 
     def skip_comment(self):
         "Skip comment."
-        while self.eat(';'):
-            while self.more() and not self.eat('\n'):
+        while self.eat(";"):
+            while self.more() and not self.eat("\n"):
                 self.pop()
             self.line += 1
 
@@ -231,7 +224,7 @@ class Parser(object):
     def more(self):
         "Whether we have more content to parse."
         return self.pos < len(self.text)
-            
+
     def eat(self, char):
         "Try to eat a character."
         if self.peak() != char:
@@ -252,7 +245,7 @@ class Parser(object):
     def isspace(self, ch):
         "Test whether ch is whitespace."
         return ch is not None and ch.isspace()
-        
+
     def report_error(self, msg):
         "Raise a ParserError with msg."
         raise ParseError("%s:%d %s" % (self.name, self.line, msg))

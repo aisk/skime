@@ -7,7 +7,8 @@ class Pair(object):
 
       Pair(1, Pair(2, None)) <==> '(1 2) <==> '(1 . (2 . ()))
     """
-    __slots__ = ['first', 'rest']
+
+    __slots__ = ["first", "rest"]
 
     def __init__(self, first, rest):
         self.first = first
@@ -15,19 +16,26 @@ class Pair(object):
 
     def get_car(self):
         return self.first
+
     def set_car(self, val):
         self.first = val
+
     def get_cdr(self):
         return self.rest
+
     def set_cdr(self, val):
         self.rest = val
+
     car = property(get_car, set_car)
     cdr = property(get_cdr, set_cdr)
 
     def __eq__(self, other):
-        return isinstance(other, Pair) and \
-               self.first == other.first and \
-               self.rest == other.rest
+        return (
+            isinstance(other, Pair)
+            and self.first == other.first
+            and self.rest == other.rest
+        )
+
     def __ne__(self, other):
         return not self.__eq__(other)
 
@@ -45,4 +53,4 @@ class Pair(object):
         if elems is not None:
             segments.append(".")
             segments.append(elems.__str__())
-        return '(' + ' '.join(segments) + ')'
+        return "(" + " ".join(segments) + ")"

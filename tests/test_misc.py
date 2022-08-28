@@ -1,9 +1,11 @@
 from helper import HelperVM
 
+
 class TestOverlappedContextSwitch(HelperVM):
     """\
     Test context switch: skime -> python -> skime
     """
+
     def test_ctx_switch(self):
         code = """
         (begin
@@ -16,4 +18,3 @@ class TestOverlappedContextSwitch(HelperVM):
             (foo 10))
         """
         assert self.eval(code) == 14
-

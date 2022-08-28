@@ -1,13 +1,15 @@
-from array    import array
+from array import array
 
-from ..iset   import INSN_MAP
-from ..form   import Form
-from ..proc   import Procedure
-from ..env    import Environment
+from ..env import Environment
 from ..errors import UnboundVariable
+from ..form import Form
+from ..iset import INSN_MAP
+from ..proc import Procedure
+
 
 class Builder(object):
     "Builder is a helper of building the bytecode for a form."
+
     def __init__(self, env, result_t=Form):
         # The lexical environment where the form is compiled
         self.env = env
@@ -28,32 +30,34 @@ class Builder(object):
         insn = INSN_MAP.get(insn_name)
         if insn is None:
             raise TypeError("No such instruction: %s" % insn_name)
-        if insn.length != 1+len(args):
-            raise TypeError("INSTRUCTION %s expects %d parameters, but %d given" % \
-                  (insn_name, insn.length-1, len(args)))
+        if insn.length != 1 + len(args):
+            raise TypeError(
+                "INSTRUCTION %s expects %d parameters, but %d given"
+                % (insn_name, insn.length - 1, len(args))
+            )
 
-        if insn_name == 'push_literal':
+        if insn_name == "push_literal":
             lit = args[0]
             # NOTE True == 1, False == 0 in Python, so "is True/False"
             # test should be put before "== 0/1" test.
             if lit is True:
-                insn_name = 'push_true'
+                insn_name = "push_true"
                 args = ()
             elif lit is False:
-                insn_name = 'push_false'
+                insn_name = "push_false"
                 args = ()
             elif lit == 0 and isinstance(lit, int):
-                insn_name = 'push_0'
+                insn_name = "push_0"
                 args = ()
             elif lit == 1 and isinstance(lit, int):
-                insn_name = 'push_1'
+                insn_name = "push_1"
                 args = ()
             elif lit is None:
-                insn_name = 'push_nil'
+                insn_name = "push_nil"
                 args = ()
 
         self.stream.append((insn_name, args))
-        self.ip += len(args)+1
+        self.ip += len(args) + 1
 
     def def_local(self, name):
         "Define a local variable."
@@ -81,12 +85,12 @@ class Builder(object):
         if depth is None:
             raise UnboundVariable(name, "Unbound variable %s" % name)
         if depth == 0:
-            postfix = ''
+            postfix = ""
             args = (idx,)
         else:
-            postfix = '_depth'
+            postfix = "_depth"
             args = (depth, idx)
-        self.emit('%s%s_local%s' % (dyn, action, postfix), *args)
+        self.emit("%s%s_local%s" % (dyn, action, postfix), *args)
 
     def push_proc(self, args=[], rest_arg=False, parent_env=None):
         """\
@@ -112,31 +116,31 @@ class Builder(object):
         bdr.rest_arg = rest_arg
 
         # generate_proc is a pseudo instruction
-        self.stream.append(('generate_proc', bdr))
-        self.ip += 3 # push_literal + fix_lexical (2+1)
-        
+        self.stream.append(("generate_proc", bdr))
+        self.ip += 3  # push_literal + fix_lexical (2+1)
+
         return bdr
 
     def generate(self):
         """\
         Generate a form with emitted instructions.
         """
-        bc = array('i')
+        bc = array("i")
         for insn_name, args in self.stream:
             # pseudo instructions
-            if insn_name == 'generate_proc':
+            if insn_name == "generate_proc":
                 idx = len(self.literals)
                 self.literals.append(args.generate())
-                bc.append(INSN_MAP['push_literal'].opcode)
+                bc.append(INSN_MAP["push_literal"].opcode)
                 bc.append(idx)
             # real instructions
             else:
                 insn = INSN_MAP[insn_name]
                 bc.append(insn.opcode)
-                
-                if insn_name in ['goto', 'goto_if_false', 'goto_if_not_false']:
+
+                if insn_name in ["goto", "goto_if_false", "goto_if_not_false"]:
                     bc.append(self.labels[args[0]])
-                elif insn_name == 'push_literal':
+                elif insn_name == "push_literal":
                     bc.append(self.get_literal_idx(args[0]))
                 else:
                     for x in args:
@@ -144,7 +148,6 @@ class Builder(object):
 
         return self.result_t(self, bc)
 
-        
     ########################################
     # Helpers used internally
     ########################################
@@ -171,8 +174,7 @@ class Builder(object):
             # make sure type is the same so that 42 and 42.0 will be
             # different literals
             l = self.literals[i]
-            if type(l) is type(lit) and \
-               l == lit:
+            if type(l) is type(lit) and l == lit:
                 return i
         self.literals.append(lit)
-        return len(self.literals)-1
+        return len(self.literals) - 1

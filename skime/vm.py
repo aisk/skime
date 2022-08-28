@@ -6,34 +6,30 @@
 
 import os.path
 
-from .ctx               import Context
-from .env               import Environment
-from .                  import insns
-from .types.pair        import Pair
-from .proc              import Procedure
-from .prim              import Primitive, load_primitives
-from .insns             import run
-from .types.pair        import Pair as pair
-
-from .compiler.parser   import parse
+from . import insns
 from .compiler.compiler import Compiler
+from .compiler.parser import parse
+from .ctx import Context
+from .env import Environment
+from .errors import WrongArgType
+from .insns import run
+from .prim import Primitive, load_primitives
+from .proc import Procedure
+from .types.pair import Pair
+from .types.pair import Pair as pair
 
-from .errors            import WrongArgType
 
 class VM(object):
-
     def __init__(self):
         self.compiler = Compiler()
-        
+
         self.env = Environment()
         self.env.vm = self
         load_primitives(self.env)
 
         self.ctx = Context(None, self.env, None)
 
-        self.load(os.path.join(os.path.dirname(__file__),
-                               'scheme',
-                               'prim.scm'))
+        self.load(os.path.join(os.path.dirname(__file__), "scheme", "prim.scm"))
 
     def run(self, form):
         return form.eval(self.env, self)
@@ -57,15 +53,15 @@ class VM(object):
                 ctx.env.assign_local(i, args[i])
             if proc.fixed_argc != proc.argc:
                 rest = None
-                for i in range(len(args)-1, proc.fixed_argc-1, -1):
+                for i in range(len(args) - 1, proc.fixed_argc - 1, -1):
                     rest = Pair(args[i], rest)
                 ctx.env.assign_local(proc.fixed_argc, rest)
 
             return run(ctx)
-        
+
         elif isinstance(proc, Primitive):
             proc.check_arity(len(args))
             return proc.call(self, *args)
-        
+
         else:
             raise WrongArgType("Not a skime callable: %s" % proc)

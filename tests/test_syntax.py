@@ -1,16 +1,12 @@
 import pytest
-
 from helper import HelperVM
 
-from skime.types.symbol import Symbol as sym
+from skime.errors import SyntaxError, UnboundVariable
 from skime.types.pair import Pair as pair
-
-from skime.errors import SyntaxError
-from skime.errors import UnboundVariable
+from skime.types.symbol import Symbol as sym
 
 
 class TestSyntax(HelperVM):
-
     def test_atom(self):
         assert self.eval("1") == 1
         assert self.eval('"foo"') == "foo"
@@ -57,56 +53,100 @@ class TestSyntax(HelperVM):
         assert self.eval("(begin (define (foo . x) (first x)) (foo 1 2))") == 1
 
     def test_set_x(self):
-        assert self.eval("""
+        assert (
+            self.eval(
+                """
         (begin
           (define foo 5)
           (define bar foo)
           (set! foo 6)
-          (pair foo bar))""") == pair(6, 5)
+          (pair foo bar))"""
+            )
+            == pair(6, 5)
+        )
         assert self.eval("(set! pair 10)") == 10
         pytest.raises(UnboundVariable, self.eval, "(set! var-not-exist 10)")
 
     def test_let(self):
-        assert self.eval("""
+        assert (
+            self.eval(
+                """
         (let ((a 3) (b 2))
           (+ a b)
-          (- a b))""") == 1
+          (- a b))"""
+            )
+            == 1
+        )
 
-        assert self.eval("""
+        assert (
+            self.eval(
+                """
         (begin
           (define a 5)
           (let ((a 10) (b a))
-            (- a b)))""") == 5
+            (- a b)))"""
+            )
+            == 5
+        )
 
         assert self.eval("(let () #t)") == True
         assert self.eval("(let ())") == None
 
     def test_do(self):
-        assert self.eval("""
+        assert (
+            self.eval(
+                """
         (do ((a 6 b) (b 9 (remainder a b)))
-            ((= b 0) a))""") == 3
+            ((= b 0) a))"""
+            )
+            == 3
+        )
 
     def test_cond(self):
-        assert self.eval("""
+        assert (
+            self.eval(
+                """
         (cond (#f 5 6)
               ((> 7 8) (+ 3 4))
-              ((< 7 8)))""") == True
+              ((< 7 8)))"""
+            )
+            == True
+        )
 
-        assert self.eval("""
+        assert (
+            self.eval(
+                """
         (cond (#f 5 6)
               ((> 7 8) (+ 3 4))
-              ((< 7 8) (+ 5 6) (+ 6 7)))""") == 13
+              ((< 7 8) (+ 5 6) (+ 6 7)))"""
+            )
+            == 13
+        )
 
-        assert self.eval("""
+        assert (
+            self.eval(
+                """
         (cond (#f 5 6)
               ((+ 2 3) => (lambda (x) (* x x)))
-              (else 10))""") == 25
+              (else 10))"""
+            )
+            == 25
+        )
 
-        assert self.eval("""
+        assert (
+            self.eval(
+                """
         (cond (#f 5 6)
-              (else))""") == None
+              (else))"""
+            )
+            == None
+        )
 
         pytest.raises(SyntaxError, self.eval, "(cond)")
-        pytest.raises(SyntaxError, self.eval, """
+        pytest.raises(
+            SyntaxError,
+            self.eval,
+            """
         (cond (else 5)
-              (#t 6))""")
+              (#t 6))""",
+        )

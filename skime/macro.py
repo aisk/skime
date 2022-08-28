@@ -1,6 +1,7 @@
-from .types.pair   import Pair as pair
+from .errors import SyntaxError
+from .types.pair import Pair as pair
 from .types.symbol import Symbol as sym
-from .errors       import SyntaxError
+
 
 class Macro(object):
     def __init__(self, env, body):
@@ -13,7 +14,9 @@ class Macro(object):
                 lit.append(literals.first)
                 literals = literals.rest
             if literals is not None:
-                raise SyntaxError("Invalid syntax rule format: literals should be a proper list.")
+                raise SyntaxError(
+                    "Invalid syntax rule format: literals should be a proper list."
+                )
 
             self.rules = []
             # Process syntax rules
@@ -34,10 +37,13 @@ class Macro(object):
                 pass
         raise SyntaxError("Can not find syntax rule to match the form %s" % form)
 
+
 class SyntaxRule(object):
     def __init__(self, rule, literals, env):
         if not isinstance(rule, pair) or not isinstance(rule.rest, pair):
-            raise SyntaxError("Expecting (pattern template) for syntax rule, but got %s" % rule)
+            raise SyntaxError(
+                "Expecting (pattern template) for syntax rule, but got %s" % rule
+            )
         if rule.rest.rest is not None:
             raise SyntaxError("Extra expressions in syntax rule: %s" % rule)
         self.env = env
@@ -81,7 +87,7 @@ class SyntaxRule(object):
                 submt = self._compile_pattern(pat.first, literals)
                 mt.add_matcher(submt)
                 pat = pat.rest
-                if isinstance(pat, pair) and pat.first == sym('...'):
+                if isinstance(pat, pair) and pat.first == sym("..."):
                     submt.ellipsis = True
                     pat = pat.rest
             if pat is not None:
@@ -92,7 +98,7 @@ class SyntaxRule(object):
         if isinstance(pat, sym):
             if pat in literals:
                 return LiteralMatcher(self.env, pat.name)
-            if pat == sym('_'):
+            if pat == sym("_"):
                 return UnderscopeMatcher()
             if self.variables.get(pat.name) is not None:
                 raise SyntaxError("Duplicated variable in macro: %s" % pat)
@@ -110,7 +116,7 @@ class SyntaxRule(object):
             while isinstance(expr, pair):
                 sub_tmpl = self.compile_template(expr.first)
                 expr = expr.rest
-                while isinstance(expr, pair) and expr.first == sym('...'):
+                while isinstance(expr, pair) and expr.first == sym("..."):
                     sub_tmpl.nflatten += 1
                     expr = expr.rest
                 tmpl.add_tmpl(sub_tmpl)
@@ -121,7 +127,7 @@ class SyntaxRule(object):
         if isinstance(expr, sym) and self.variables.get(expr.name) is not None:
             return VariableTemplate(expr.name)
         return ConstantTemplate(expr)
-            
+
 
 ########################################
 # Pattern matching
@@ -129,30 +135,37 @@ class SyntaxRule(object):
 class MatchError(Exception):
     pass
 
+
 class MatchDict(dict):
     """\
     A MatchDict hold the matched value of variable patterns. It is an error to
     have duplicated variable patterns with the same name.
     """
+
     def __setitem__(self, key, value):
         dict.__setitem__(self, key, value)
+
     def __str__(self):
         return "<MatchDict %s>" % dict.__str__(self)
+
 
 class Ellipsis(list):
     """\
     Ellipsis holds the zero or more value of an ellipsis pattern.
     """
+
     def __init__(self, *value):
         list.__init__(self, value)
+
     def __repr__(self):
         return "<Ellipsis %s>" % list.__repr__(self)
-            
+
 
 class EllipsisMatchDict(dict):
     """\
     Like MatchDict, excpet that all values are Ellipsis.
     """
+
     def __setitem__(self, key, value):
         el = self.get(key)
         if el is None:
@@ -161,19 +174,20 @@ class EllipsisMatchDict(dict):
         else:
             # already has the key
             el.append(value)
+
     def __str__(self):
         return "<EllipsisMatchDict %s>" % dict.__str__(self)
-            
+
 
 class Matcher(object):
     "The base class for all matchers."
+
     def __init__(self, name):
         self.ellipsis = False
         self.name = name
 
     def class_name(self):
-        return "%s%s" % (self.__class__.__name__,
-                         self.ellipsis and "*" or "")
+        return "%s%s" % (self.__class__.__name__, self.ellipsis and "*" or "")
 
     def match(self, env, expr, match_dict):
         """\
@@ -183,13 +197,15 @@ class Matcher(object):
         raise MatchError("%s: match not implemented" % self)
 
     def __str__(self):
-        return '<%s name=%s>' % (self.class_name(), self.name)
+        return "<%s name=%s>" % (self.class_name(), self.name)
+
 
 class LiteralMatcher(Matcher):
     """\
     A LiteralMatcher only matches the symbol with the same lexical binding
     or both has no binding.
     """
+
     def __init__(self, env, name):
         Matcher.__init__(self, name)
         self.loc = self.get_loc(env, name)
@@ -204,7 +220,7 @@ class LiteralMatcher(Matcher):
                 pass
             return expr
 
-        self.match_literal(env, expr)   # may raise MatchError
+        self.match_literal(env, expr)  # may raise MatchError
         return expr.rest
 
     def get_loc(self, env, name):
@@ -213,38 +229,44 @@ class LiteralMatcher(Matcher):
         return env.lookup_location(name)
 
     def match_literal(self, env, expr):
-        if not isinstance(expr, pair) or \
-           not isinstance(expr.first, sym):
+        if not isinstance(expr, pair) or not isinstance(expr.first, sym):
             raise MatchError("%s: can not match %s" % (self, expr))
         loc = self.get_loc(env, expr.first.name)
         if self.loc != loc:
-            raise MatchError("%s: can not match %s with different lexical binding" % (self, expr.first.name))
+            raise MatchError(
+                "%s: can not match %s with different lexical binding"
+                % (self, expr.first.name)
+            )
+
 
 class ConstantMatcher(Matcher):
     """\
     Matches any constant.
     """
+
     def __init__(self, value):
         Matcher.__init__(self, None)
         self.value = value
+
     def match(self, env, expr, match_dict):
         if self.ellipsis:
-            while isinstance(expr, pair) and \
-                  expr.first == self.value:
+            while isinstance(expr, pair) and expr.first == self.value:
                 expr = expr.rest
             return expr
-        
-        if not isinstance(expr, pair) or \
-           expr.first != self.value:
+
+        if not isinstance(expr, pair) or expr.first != self.value:
             raise MatchError("%s: can not match %s" % (self, expr))
         return expr.rest
+
     def __str__(self):
         return "<%s value=%s>" % (self.class_name(), self.value)
+
 
 class VariableMatcher(Matcher):
     """\
     A variable match any single expression.
     """
+
     def match(self, env, expr, match_dict):
         if self.ellipsis:
             result = Ellipsis()
@@ -259,13 +281,16 @@ class VariableMatcher(Matcher):
 
         match_dict[self.name] = result
         return expr
-        
+
+
 class UnderscopeMatcher(Matcher):
     """\
     An underscope match any single expression and discard the matched result.
     """
+
     def __init__(self):
-        Matcher.__init__(self, '_')
+        Matcher.__init__(self, "_")
+
     def match(self, env, expr, match_dict):
         if self.ellipsis:
             while isinstance(expr, pair):
@@ -276,23 +301,29 @@ class UnderscopeMatcher(Matcher):
             expr = expr.rest
 
         return expr
-    
+
+
 class RestMatcher(Matcher):
     """\
     RestMatcher match against the rest of a list like (a b . c), where c will
     be a RestMatcher. The matcher is implemented by wrapping another matcher.
     """
+
     def __init__(self, matcher):
         self.matcher = matcher
+
     def match(self, env, expr, match_dict):
         return self.matcher.match(env, pair(expr, None), match_dict)
+
     def __str__(self):
         return "<RestMatcher: matcher=%s>" % self.matcher
+
 
 class SequenceMatcher(Matcher):
     """\
     SequenceMatcher hold a sequence of matchers and matches them in that order.
     """
+
     def __init__(self):
         Matcher.__init__(self, None)
         self.sequence = []
@@ -322,15 +353,16 @@ class SequenceMatcher(Matcher):
         if expr is not None:
             # not matched expressions
             raise MatchError("%s: ramaining expressions not matched: %s" % (self, expr))
-        
 
     def add_matcher(self, matcher):
         self.sequence.append(matcher)
 
     def __str__(self):
-        return "<%s sequence=[%s]>" % (self.class_name(),
-                                       ', '.join([m.__str__()
-                                                  for m in self.sequence]))
+        return "<%s sequence=[%s]>" % (
+            self.class_name(),
+            ", ".join([m.__str__() for m in self.sequence]),
+        )
+
 
 ########################################
 # Template expanding
@@ -347,31 +379,41 @@ class DynamicClosure(object):
      - expression: the expression wrapped.
      - form: the compiled form of the expression.
     """
-    __slots__ = ('lexical_parent', 'expression', 'form')
-    
+
+    __slots__ = ("lexical_parent", "expression", "form")
+
     def __init__(self, env, expr):
         self.lexical_parent = env
         self.expression = expr
 
     def __eq__(self, o):
-        return isinstance(o, DynamicClosure) and \
-               self.lexical_parent == o.lexical_parent and \
-               self.expression == o.expression
+        return (
+            isinstance(o, DynamicClosure)
+            and self.lexical_parent == o.lexical_parent
+            and self.expression == o.expression
+        )
+
     def __ne__(self, o):
         return not self.__eq__(o)
 
     def __str__(self):
         return self.__repr__()
+
     def __repr__(self):
-        return "<DynamicClosure expr=%s, env=%s>" % (self.expression,
-                                                     self.lexical_parent)
+        return "<DynamicClosure expr=%s, env=%s>" % (
+            self.expression,
+            self.lexical_parent,
+        )
+
 
 class SymbolClosure(DynamicClosure):
     def __hash__(self):
         return self.expression.name.__hash__()
 
+
 class ClosureFactory(object):
     "Create and hold DynamicClosure."
+
     def __init__(self, env):
         self.env = env
         self.values = []
@@ -405,6 +447,7 @@ class ClosureFactory(object):
                 return self.closures[i]
         return None
 
+
 # There are the following kinds of templates:
 #  - symbol:
 #    - lexical binding: symbol referencing to the lexical binding where the macro is defined
@@ -413,33 +456,38 @@ class ClosureFactory(object):
 #  - pair: expand recursively
 #  - other: expand as constant
 
+
 class Template(object):
     "The base class for all template."
+
     def __init__(self):
         self.nflatten = 0
-        
+
     def class_name(self):
         return self.__class__.__name__
-    
+
     def expand(self, dc_factory, md, nflatten=0):
         "Expand the template under match dict md."
         raise SyntaxError("Attempt to expand an abstract template.")
 
+
 class ConstantTemplate(Template):
     "Template that will expand to a constant."
+
     def __init__(self, value):
         Template.__init__(self)
         self.value = value
 
     def expand(self, dc_factory, md, idx=[]):
-        return (self.value, )
-    
+        return (self.value,)
+
     def __str__(self):
         return "<%s value=%s>" % (self.class_name(), self.value)
 
 
 class VariableTemplate(Template):
     "Template that reference to a macro variable."
+
     def __init__(self, name):
         Template.__init__(self)
         self.name = name
@@ -454,7 +502,9 @@ class VariableTemplate(Template):
             val = self.flatten(val)
             nflatten -= 1
         if len(val) > 0 and isinstance(val[0], Ellipsis):
-            raise SyntaxError("Ellipsis after variable %s is less than expected." % self.name)
+            raise SyntaxError(
+                "Ellipsis after variable %s is less than expected." % self.name
+            )
         return [dc_factory.make_closure(v) for v in val]
 
     def flatten(self, val):
@@ -469,10 +519,11 @@ class VariableTemplate(Template):
     def __str__(self):
         return "<%s name=%s>" % (self.class_name(), self.name)
 
+
 class SequenceTemplate(Template):
     "Template that aggregate a sequence of sub-templates."
     default_tail = ConstantTemplate(None)
-    
+
     def __init__(self):
         Template.__init__(self)
         self.sequence = []
@@ -514,13 +565,15 @@ class SequenceTemplate(Template):
             if length == 0 or length == len(var):
                 length = len(var)
             else:
-                raise SyntaxError("Incompatible ellipsis match counts for variable %s" % name)
+                raise SyntaxError(
+                    "Incompatible ellipsis match counts for variable %s" % name
+                )
         if length > 0:
             idx.append(0)
             res = []
             for i in range(length):
                 idx[-1] = i
-                res.extend(self.expand_flatten(dc_factory, md, idx, flatten-1))
+                res.extend(self.expand_flatten(dc_factory, md, idx, flatten - 1))
             idx.pop()
             return res
         else:
@@ -534,9 +587,10 @@ class SequenceTemplate(Template):
         for elem in reversed(elems):
             rest = pair(elem, rest)
         return [rest]
-        
+
     def __str__(self):
-        return "<%s sequence=[%s], tail=%s>" % (self.class_name(),
-                                                ', '.join([tmpl.__str__()
-                                                           for tmpl in self.sequence]),
-                                                self.tail)
+        return "<%s sequence=[%s], tail=%s>" % (
+            self.class_name(),
+            ", ".join([tmpl.__str__() for tmpl in self.sequence]),
+            self.tail,
+        )

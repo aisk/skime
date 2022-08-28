@@ -1,5 +1,6 @@
 import helper
 
+
 class TestCallCc(object):
     def eval(self, vm, code):
         compiler = helper.Compiler()
@@ -10,11 +11,15 @@ class TestCallCc(object):
         vm = helper.VM()
 
         self.eval(vm, "(define return #f)")
-        assert self.eval(vm, """
+        assert (
+            self.eval(
+                vm,
+                """
         (+ 1 (call/cc
                (lambda (cont)
                  (set! return cont)
-                 1)))""") == 2
+                 1)))""",
+            )
+            == 2
+        )
         assert self.eval(vm, "(return 22)") == 23
-        
-        

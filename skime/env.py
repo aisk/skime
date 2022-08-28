@@ -3,17 +3,20 @@ class Location(object):
     A location of a variable, including the Environment object and
     the index in it.
     """
-    __slots__ = ('env', 'idx')
-    
+
+    __slots__ = ("env", "idx")
+
     def __init__(self, env, idx):
         self.env = env
         self.idx = idx
 
     def __eq__(self, other):
         "Test if two Location object refer to the same location."
-        return isinstance(other, Location) and \
-               self.idx == other.idx and \
-               self.env is other.env
+        return (
+            isinstance(other, Location)
+            and self.idx == other.idx
+            and self.env is other.env
+        )
 
     # Python rocks! Just Keep It Simple and verboSe.
     # When you defined __eq__, please also define __ne__ or
@@ -23,19 +26,23 @@ class Location(object):
         return not self.__eq__(other)
 
     def __str__(self):
-        return '<Location idx=%s, env=%s>' % (self.idx, self.env)
+        return "<Location idx=%s, env=%s>" % (self.idx, self.env)
+
 
 class Undef(object):
     undef = None
+
     def __new__(cls):
         if cls.undef is None:
             cls.undef = object.__init__(cls)
         return cls.undef
-        
+
     def __repr__(self):
-        return '<undef>'
+        return "<undef>"
+
     def __str__(self):
-        return '<undef>'
+        return "<undef>"
+
 
 class Environment(object):
     """\

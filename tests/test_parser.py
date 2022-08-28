@@ -1,3 +1,5 @@
+import pytest
+
 import helper
 
 from skime.compiler.parser import parse as p
@@ -5,8 +7,6 @@ from skime.errors import ParseError
 from skime.types.symbol import Symbol as sym
 from skime.types.pair import Pair as pair
 
-from nose.tools import assert_almost_equal
-from nose.tools import assert_raises
 
 class TestNumber(object):
     def test_integer(self):
@@ -16,10 +16,10 @@ class TestNumber(object):
         assert p('-10') == -10
 
     def test_float(self):
-        assert_almost_equal(p('0.0'), 0.0)
-        assert_almost_equal(p('-0.0'), 0.0)
-        assert_almost_equal(p('2.5'), 2.5)
-        assert_almost_equal(p('-200.75'), -200.75)
+        pytest.approx(p('0.0'), 0.0)
+        pytest.approx(p('-0.0'), 0.0)
+        pytest.approx(p('2.5'), 2.5)
+        pytest.approx(p('-200.75'), -200.75)
 
     def test_complex(self):
         assert p('0+i') == 1j
@@ -33,7 +33,7 @@ class TestNumber(object):
     # float
     def test_rational(self):
         assert p('6/3') == 2
-        assert_almost_equal(p('1/3'), 1.0/3)
+        pytest.approx(p('1/3'), 1.0/3)
 
 class TestString(object):
     def test_string(self):
@@ -69,9 +69,9 @@ class TestPair(object):
         assert p('(1 2 . 3)') == pair(1, pair(2, 3))
     
     def test_fail(self):
-        assert_raises(ParseError, p, '(')
-        assert_raises(ParseError, p, '(1 . 2 3)')
-        assert_raises(ParseError, p, '(1))')
+        pytest.raises(ParseError, p, '(')
+        pytest.raises(ParseError, p, '(1 . 2 3)')
+        pytest.raises(ParseError, p, '(1))')
 
 
 class TestQuote(object):
@@ -111,6 +111,6 @@ class TestComment(object):
         assert p("5; this is a comment\n") == 5
 
     def test_pure_comment(self):
-        assert_raises(ParseError, p, "; this is only comnent")
-        assert_raises(ParseError, p, "; this is only comnent\n")
-        assert_raises(ParseError, p, "\n\n  ; this is only comnent\n\n")
+        pytest.raises(ParseError, p, "; this is only comnent")
+        pytest.raises(ParseError, p, "; this is only comnent\n")
+        pytest.raises(ParseError, p, "\n\n  ; this is only comnent\n\n")

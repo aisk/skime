@@ -1,3 +1,5 @@
+import pytest
+
 from helper import HelperVM
 
 from skime.types.symbol import Symbol as sym
@@ -6,7 +8,6 @@ from skime.types.pair import Pair as pair
 from skime.errors import SyntaxError
 from skime.errors import UnboundVariable
 
-from nose.tools import assert_raises
 
 class TestSyntax(HelperVM):
 
@@ -24,9 +25,9 @@ class TestSyntax(HelperVM):
         assert self.eval("(if #f 1 2)") == 2
         assert self.eval("(if #t 1)") == 1
         assert self.eval("(if #f 1)") == None
-        assert_raises(SyntaxError, self.eval, "(if #t)")
-        assert_raises(SyntaxError, self.eval, "(if)")
-        assert_raises(SyntaxError, self.eval, "(if #t 1 2 3)")
+        pytest.raises(SyntaxError, self.eval, "(if #t)")
+        pytest.raises(SyntaxError, self.eval, "(if)")
+        pytest.raises(SyntaxError, self.eval, "(if #t 1 2 3)")
 
     def test_lambda(self):
         assert self.eval("((lambda (x) x) 5)") == 5
@@ -45,9 +46,9 @@ class TestSyntax(HelperVM):
 
     def test_define(self):
         assert self.eval("(begin (define foo 5) foo)") == 5
-        assert_raises(SyntaxError, self.eval, "(define)")
-        assert_raises(SyntaxError, self.eval, "(define foo)")
-        assert_raises(SyntaxError, self.eval, "(define foo 5 6)")
+        pytest.raises(SyntaxError, self.eval, "(define)")
+        pytest.raises(SyntaxError, self.eval, "(define foo)")
+        pytest.raises(SyntaxError, self.eval, "(define foo 5 6)")
 
         assert self.eval("(begin (define (foo x) x) (foo 5))") == 5
         assert self.eval("(begin (define (foo)) (foo))") == None
@@ -63,7 +64,7 @@ class TestSyntax(HelperVM):
           (set! foo 6)
           (pair foo bar))""") == pair(6, 5)
         assert self.eval("(set! pair 10)") == 10
-        assert_raises(UnboundVariable, self.eval, "(set! var-not-exist 10)")
+        pytest.raises(UnboundVariable, self.eval, "(set! var-not-exist 10)")
 
     def test_let(self):
         assert self.eval("""
@@ -105,7 +106,7 @@ class TestSyntax(HelperVM):
         (cond (#f 5 6)
               (else))""") == None
 
-        assert_raises(SyntaxError, self.eval, "(cond)")
-        assert_raises(SyntaxError, self.eval, """
+        pytest.raises(SyntaxError, self.eval, "(cond)")
+        pytest.raises(SyntaxError, self.eval, """
         (cond (else 5)
               (#t 6))""")

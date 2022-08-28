@@ -1,3 +1,5 @@
+import pytest
+
 from helper import HelperVM
 
 from skime.errors       import WrongArgType
@@ -7,20 +9,18 @@ from skime.errors       import MiscError
 from skime.types.pair   import Pair as pair
 from skime.types.symbol import Symbol as sym
 
-from nose.tools import assert_raises
-
 class TestArithmetic(HelperVM):
     def test_basic(self):
         assert self.eval('(+ 1 2 3)') == 6
         assert self.eval('(+ -1 1)') == 0
         assert self.eval('(+ 1)') == 1
         assert self.eval('(+)') == 0
-        assert_raises(WrongArgType, self.eval, '(+ 1 "foo")')
+        pytest.raises(WrongArgType, self.eval, '(+ 1 "foo")')
 
         assert self.eval('(- 3 2 1)') == 0
         assert self.eval('(- 2 1)') == 1
         assert self.eval('(- 2)') == -2
-        assert_raises(WrongArgNumber, self.eval, '(-)')
+        pytest.raises(WrongArgNumber, self.eval, '(-)')
 
         assert self.eval('(* -2 -3)') == 6
         assert self.eval('(* 2)') == 2
@@ -31,7 +31,7 @@ class TestArithmetic(HelperVM):
         # done in float type
         assert self.eval('(/ 2)') == 0.5
         assert self.eval('(/ 2.0)') == 0.5
-        assert_raises(WrongArgNumber, self.eval, '(/)')
+        pytest.raises(WrongArgNumber, self.eval, '(/)')
 
 class TestLogic(HelperVM):
     def test_logic(self):
@@ -130,7 +130,7 @@ class TestApply(HelperVM):
         assert self.eval("(apply + 1 '(2))") == 3
         assert self.eval("(apply - 3 '(2 1))") == 0
         assert self.eval("(apply (lambda (x) x) 1 '())") == 1
-        assert_raises(WrongArgNumber, self.eval, "(apply (lambda (x) x) 1 '(2))")
+        pytest.raises(WrongArgNumber, self.eval, "(apply (lambda (x) x) 1 '(2))")
         assert self.eval("(apply (lambda x x) 1 '(2 3))") == pair(1, pair(2, pair(3, None)))
 
 class TestMap(HelperVM):
@@ -139,6 +139,6 @@ class TestMap(HelperVM):
         assert self.eval("(map + '(1 2 3))") == pair(1, pair(2, pair(3, None)))
         assert self.eval("(map (lambda (x y) (pair x y)) '(1 2) '(3 4))") == \
                pair(pair(1, 3), pair(pair(2, 4), None))
-        assert_raises(WrongArgNumber, self.eval, "(map (lambda (x y) (pair x y)) '(1 2))")
-        assert_raises(WrongArgType, self.eval, "(map + '(1 2 3 . 4))")
-        assert_raises(MiscError, self.eval, "(map + '(1 2) '(3 4 5))")
+        pytest.raises(WrongArgNumber, self.eval, "(map (lambda (x y) (pair x y)) '(1 2))")
+        pytest.raises(WrongArgType, self.eval, "(map + '(1 2 3 . 4))")
+        pytest.raises(MiscError, self.eval, "(map + '(1 2) '(3 4 5))")

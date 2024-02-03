@@ -2,7 +2,7 @@
 
 from .call_cc import Continuation
 from .ctx import Context
-from .errors import WrongArgType
+from .errors import WrongArgType, WrongArgNumber
 from .prim import Primitive
 from .proc import Procedure
 from .types.pair import Pair

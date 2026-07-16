@@ -67,6 +67,8 @@ class TestLogic(HelperVM):
         assert self.eval("(and #t)") == True
         assert self.eval("(and 1 2 3)") == 3
         assert self.eval("(and #t 2)") == 2
+        assert self.eval("(pair 1 ((lambda () (or 2 3))))") == pair(1, 2)
+        assert self.eval("(pair 1 ((lambda () (and #f 3))))") == pair(1, False)
         assert self.eval("""(begin
                               (define foo 2)
                               (and #t (set! foo 3) (set! foo 4))

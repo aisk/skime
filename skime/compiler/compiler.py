@@ -526,10 +526,11 @@ class Compiler(object):
         if keep:
             if not expr_generated:
                 bdr.emit("push_false")
+            bdr.def_label(lbl_end)
             if tail:
                 bdr.emit("ret")
-
-        bdr.def_label(lbl_end)
+        else:
+            bdr.def_label(lbl_end)
 
     def generate_and(self, bdr, expr, keep=True, tail=False):
         lbl_end = self.next_label()
@@ -553,10 +554,11 @@ class Compiler(object):
         if keep:
             if not expr_generated:
                 bdr.emit("push_true")
+            bdr.def_label(lbl_end)
             if tail:
                 bdr.emit("ret")
-
-        bdr.def_label(lbl_end)
+        else:
+            bdr.def_label(lbl_end)
 
     def generate_define_syntax(self, bdr, expr, keep=True, tail=False):
         if not isinstance(expr, pair):

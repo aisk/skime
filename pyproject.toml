@@ -34,9 +34,10 @@ required-version = "==0.11.18"
 [tool.black]
 target-version = ["py310"]
 
-[tool.setuptools.package-data]
-skime = ["iset.yml", "scheme/*.scm"]
+[tool.uv.build-backend]
+module-name = "skime"
+module-root = ""
 
 [build-system]
-requires = ["setuptools>=77"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.11.18,<0.12.0"]
+build-backend = "uv_build"

@@ -83,6 +83,7 @@ class Parser(object):
             if num2 is None:
                 self.report_error("Invalid number format, expecting denominator")
             num1 = float(num1) / num2
+        num1 *= sign1
         if self.peak() in ["+", "-"]:
             sign2 = 1
             if self.eat("-"):
@@ -96,7 +97,7 @@ class Parser(object):
             if num2 != 0:
                 num1 = num1 + sign2 * num2 * 1j
 
-        return sign1 * num1
+        return num1
 
     def parse_unum(self):
         "Parse an unsigned number."
@@ -125,6 +126,8 @@ class Parser(object):
                 elems.append(None)
                 break
             if self.peak() == "." and self.peak(idx=1) != ".":
+                if not elems:
+                    self.report_error("Dot cannot appear before a list element")
                 self.eat(".")
                 elems.append(self.parse_expr())
                 self.skip_all()
@@ -186,7 +189,7 @@ class Parser(object):
                 self.pop()
         strings.append(self.text[pos1 : self.pos])
         if not self.eat('"'):
-            report_error("Expecting '\"' to end a string.")
+            self.report_error("Expecting '\"' to end a string.")
         return "".join(strings)
 
     def parse_vector(self):

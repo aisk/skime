@@ -27,6 +27,8 @@ class TestNumber(object):
         assert p("3.5-4i") == 3.5 - 4j
         assert p("0.3+0.5i") == 0.3 + 0.5j
         assert p("0.5+0i") == 0.5
+        assert p("-5+3i") == -5 + 3j
+        assert p("-5-3i") == -5 - 3j
 
     # currently rational numbers are converted to
     # float
@@ -43,6 +45,9 @@ class TestString(object):
         assert p(r'""') == ""
         assert p(r'"tab\t"') == "tab\t"
         assert p(r'"newline\n"') == "newline\n"
+
+    def test_unterminated_string(self):
+        pytest.raises(ParseError, p, '"unterminated')
 
 
 class TestSymbol(object):
@@ -75,6 +80,7 @@ class TestPair(object):
         pytest.raises(ParseError, p, "(")
         pytest.raises(ParseError, p, "(1 . 2 3)")
         pytest.raises(ParseError, p, "(1))")
+        pytest.raises(ParseError, p, "(. 1)")
 
 
 class TestQuote(object):

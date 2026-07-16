@@ -1,4 +1,3 @@
-import helper
 import pytest
 
 from skime.compiler.parser import parse

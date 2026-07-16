@@ -3,7 +3,6 @@ from helper import HelperVM
 
 from skime.errors import SyntaxError, UnboundVariable
 from skime.types.pair import Pair as pair
-from skime.types.symbol import Symbol as sym
 
 
 class TestSyntax(HelperVM):
@@ -25,6 +24,28 @@ class TestSyntax(HelperVM):
         pytest.raises(SyntaxError, self.eval, "(if #t)")
         pytest.raises(SyntaxError, self.eval, "(if)")
         pytest.raises(SyntaxError, self.eval, "(if #t 1 2 3)")
+
+    def test_boolean_and_short_circuit_forms(self):
+        assert self.eval("(boolean? #t)") is True
+        assert self.eval("(boolean? 0)") is False
+        assert self.eval("(not #f)") is True
+        assert self.eval("(not '())") is False
+        assert self.eval("(or)") is False
+        assert self.eval("(or #f 2 3)") == 2
+        assert self.eval("(and)") is True
+        assert self.eval("(and #t 2 3)") == 3
+        assert self.eval("""
+            (begin
+              (define value 2)
+              (or #f (set! value 3) (set! value 4))
+              value)
+        """) == 3
+        assert self.eval("""
+            (begin
+              (define value 2)
+              (and #t (set! value 3) (set! value 4))
+              value)
+        """) == 4
 
     def test_lambda(self):
         assert self.eval("((lambda (x) x) 5)") == 5
@@ -116,9 +137,27 @@ class TestSyntax(HelperVM):
         assert self.eval("(let ())") == None
         pytest.raises(SyntaxError, self.eval, "(let ((a 1 2)) a)")
 
+    def test_named_let(self):
+        assert self.eval("""
+            (let loop ((numbers '(1 2 3 4)) (sum 0))
+              (if (null? numbers)
+                  sum
+                  (loop (cdr numbers) (+ sum (car numbers)))))
+        """) == 10
+
     def test_quote(self):
         pytest.raises(SyntaxError, self.eval, "(quote)")
         pytest.raises(SyntaxError, self.eval, "(quote 1 2)")
+
+    def test_quasiquote(self):
+        assert self.eval("`(list ,(+ 1 2) 4)") == self.eval("'(list 3 4)")
+        assert self.eval("`(a ,@(list 1 2) b)") == self.eval("'(a 1 2 b)")
+        assert self.eval("`(a . ,(+ 1 2))") == self.eval("'(a . 3)")
+        assert self.eval("`(a `(b ,(+ 1 2)))") == self.eval(
+            "'(a (quasiquote (b (unquote (+ 1 2)))))"
+        )
+        pytest.raises(SyntaxError, self.eval, "(quasiquote)")
+        pytest.raises(SyntaxError, self.eval, "`,@'(a b)")
 
     def test_do(self):
         assert self.eval("""
@@ -155,3 +194,11 @@ class TestSyntax(HelperVM):
         (cond (else 5)
               (#t 6))""",
         )
+
+    def test_case(self):
+        assert self.eval(
+            "(case (* 2 3) ((2 3 5 7) 'prime) ((1 4 6 8) 'composite))"
+        ) == self.eval("'composite")
+        assert self.eval("(case 'unknown ((a b) 1) (else 2))") == 2
+        assert self.eval("(case 'unknown ((a b) 1))") is None
+        pytest.raises(SyntaxError, self.eval, "(case 1 (else 1) ((1) 2))")

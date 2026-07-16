@@ -5,8 +5,21 @@ from skime.errors import WrongArgType
 from skime.types.pair import Pair as pair
 
 
-class TestR5RSLists(HelperVM):
+class TestLists(HelperVM):
+    def test_pair_construction_and_mutation(self):
+        assert self.eval("(pair 1 2)") == pair(1, 2)
+        assert self.eval("(cons 1 2)") == pair(1, 2)
+        assert self.eval("(car (cons 1 2))") == 1
+        assert self.eval("(cdr (cons 1 2))") == 2
+        assert self.eval("""
+            (let ((value (cons 1 2)))
+              (set-car! value 3)
+              (set-cdr! value 4)
+              value)
+        """) == pair(3, 4)
+
     def test_list_construction_and_selection(self):
+        assert self.eval("(list 1 2 3)") == pair(1, pair(2, pair(3, None)))
         assert self.eval("(length '(a b c))") == 3
         assert self.eval("(append '(a b) '(c d))") == pair(
             self.eval("'a"),
@@ -40,3 +53,14 @@ class TestR5RSLists(HelperVM):
         pytest.raises(WrongArgType, self.eval, "(length '(a . b))")
         pytest.raises(WrongArgType, self.eval, "(list-ref '(a) 1)")
         pytest.raises(WrongArgType, self.eval, "(list-tail '(a) -1)")
+
+    def test_list_predicates(self):
+        assert self.eval("(null? '())") is True
+        assert self.eval("(pair? '(1))") is True
+        assert self.eval("(list? '(1 2 3))") is True
+        assert self.eval("(list? '(1 . 2))") is False
+        assert self.eval("""
+            (let ((value (list 1)))
+              (set-cdr! value value)
+              (list? value))
+        """) is False

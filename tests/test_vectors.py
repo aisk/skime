@@ -5,7 +5,7 @@ from skime.errors import WrongArgType
 from skime.types.vector import Vector
 
 
-class TestR5RSVectors(HelperVM):
+class TestVectors(HelperVM):
     def test_vector_literals_and_construction(self):
         assert self.eval("'#(a b c)") == Vector(
             [self.eval("'a"), self.eval("'b"), self.eval("'c")]

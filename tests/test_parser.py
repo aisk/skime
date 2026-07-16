@@ -1,4 +1,3 @@
-import helper
 import pytest
 
 from skime.compiler.parser import parse as p
@@ -17,10 +16,10 @@ class TestNumber(object):
         assert p("-10") == -10
 
     def test_float(self):
-        pytest.approx(p("0.0"), 0.0)
-        pytest.approx(p("-0.0"), 0.0)
-        pytest.approx(p("2.5"), 2.5)
-        pytest.approx(p("-200.75"), -200.75)
+        assert p("0.0") == pytest.approx(0.0)
+        assert p("-0.0") == pytest.approx(0.0)
+        assert p("2.5") == pytest.approx(2.5)
+        assert p("-200.75") == pytest.approx(-200.75)
 
     def test_complex(self):
         assert p("0+i") == 1j
@@ -36,7 +35,7 @@ class TestNumber(object):
     # float
     def test_rational(self):
         assert p("6/3") == 2
-        pytest.approx(p("1/3"), 1.0 / 3)
+        assert p("1/3") == pytest.approx(1.0 / 3)
         pytest.raises(ParseError, p, "1/0")
 
 
@@ -64,8 +63,8 @@ class TestSymbol(object):
 
 class TestBool(object):
     def test_bool(self):
-        assert p("#t") == True
-        assert p("#f") == False
+        assert p("#t") is True
+        assert p("#f") is False
 
 
 class TestVector(object):

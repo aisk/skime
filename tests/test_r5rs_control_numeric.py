@@ -25,6 +25,20 @@ class TestR5RSControl(HelperVM):
 
         assert vm.eval_string('(load "%s")' % source) == 42
 
+    def test_default_output_procedures(self, capsys):
+        self.eval("""
+            (begin
+              (display "hello")
+              (display #\\space)
+              (display '(1 "two"))
+              (newline)
+              (write "quoted")
+              (write-char #\\!))
+            """)
+
+        assert capsys.readouterr().out == 'hello (1 "two")\n"quoted"!'
+        pytest.raises(WrongArgType, self.eval, "(write-char 1)")
+
 
 class TestR5RSNumbers(HelperVM):
     def test_booleans_are_not_numbers(self):

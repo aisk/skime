@@ -1,5 +1,6 @@
 import cmath
 import math
+import sys
 from functools import wraps
 from itertools import product
 
@@ -48,12 +49,12 @@ class PyPrimitive(Primitive):
 
     def check_arity(self, argc):
         min, max = self.arity
-        if min > 0 and argc < min:
+        if min >= 0 and argc < min:
             raise WrongArgNumber(
                 "%s expects at least %d arguments, but got %d"
                 % (self.proc.__name__, min, argc)
             )
-        if max > 0 and argc > max:
+        if max >= 0 and argc > max:
             raise WrongArgNumber(
                 "%s expects at most %d arguments, but got %d"
                 % (self.proc.__name__, max, argc)
@@ -183,6 +184,10 @@ def load_primitives(env):
     env.alloc_local("map", PyPrimitive(prim_map, (2, -1)))
     env.alloc_local("for-each", PyPrimitive(prim_for_each, (2, -1)))
     env.alloc_local("load", PyPrimitive(prim_load, (1, 1)))
+    env.alloc_local("display", PyPrimitive(prim_display, (1, 1)))
+    env.alloc_local("write", PyPrimitive(prim_write, (1, 1)))
+    env.alloc_local("write-char", PyPrimitive(prim_write_char, (1, 1)))
+    env.alloc_local("newline", PyPrimitive(prim_newline, (0, 0)))
 
     env.alloc_local("string->symbol", PyPrimitive(prim_string_to_symbol, (1, 1)))
     env.alloc_local("symbol->string", PyPrimitive(prim_symbol_to_string, (1, 1)))
@@ -818,6 +823,66 @@ def prim_for_each(vm, proc, *lists):
 def prim_load(vm, filename):
     type_check(filename, str)
     return vm.load(filename)
+
+
+def prim_display(vm, obj):
+    if isinstance(obj, str):
+        content = obj
+    elif isinstance(obj, Character):
+        content = obj.value
+    else:
+        content = scheme_write(obj)
+    sys.stdout.write(content)
+
+
+def prim_write(vm, obj):
+    sys.stdout.write(scheme_write(obj))
+
+
+def prim_write_char(vm, character):
+    type_check(character, Character)
+    sys.stdout.write(character.value)
+
+
+def prim_newline(vm):
+    sys.stdout.write("\n")
+
+
+def scheme_write(obj):
+    if obj is True:
+        return "#t"
+    if obj is False:
+        return "#f"
+    if obj is None:
+        return "()"
+    if isinstance(obj, Character):
+        return str(obj)
+    if isinstance(obj, str):
+        escaped = (
+            obj.replace("\\", "\\\\")
+            .replace('"', '\\"')
+            .replace("\n", "\\n")
+            .replace("\t", "\\t")
+        )
+        return '"%s"' % escaped
+    if isinstance(obj, pair):
+        return write_pair(obj)
+    if isinstance(obj, Vector):
+        return "#(" + " ".join(scheme_write(value) for value in obj.elements) + ")"
+    if isinstance(obj, complex):
+        sign = "+" if obj.imag >= 0 else "-"
+        return "%s%s%si" % (obj.real, sign, abs(obj.imag))
+    return str(obj)
+
+
+def write_pair(value):
+    elements = []
+    while isinstance(value, pair):
+        elements.append(scheme_write(value.first))
+        value = value.rest
+    if value is not None:
+        elements.extend([".", scheme_write(value)])
+    return "(" + " ".join(elements) + ")"
 
 
 def prim_string_to_symbol(vm, name):

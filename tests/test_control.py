@@ -72,3 +72,12 @@ class TestContinuations:
                      1)))
         """) == 2
         assert vm.eval_string("(return 22)") == 23
+        assert vm.eval_string("(return 30)") == 31
+
+    def test_continuation_requires_exactly_one_argument(self):
+        vm = VM()
+
+        with pytest.raises(WrongArgNumber):
+            vm.eval_string("(call/cc (lambda (continuation) (continuation)))")
+        with pytest.raises(WrongArgNumber):
+            vm.eval_string("(call/cc (lambda (continuation) (continuation 1 2)))")

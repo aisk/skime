@@ -317,13 +317,10 @@ def make_call(ctx, argc, tail=False):
         nctx.push(proc.call(ctx.vm, *args))
 
     elif isinstance(proc, Continuation):
-        if argc > 1:
-            raise WrongArgNumber("Continuation only accept 1 argument")
+        if argc != 1:
+            raise WrongArgNumber("Continuation expects exactly 1 argument")
         nctx = proc.ctx.clone()
-        if argc == 1:
-            nctx.push(ctx.pop())
-        else:
-            nctx.push(None)
+        nctx.push(ctx.pop())
         nctx.parent = ctx.parent
 
     else:

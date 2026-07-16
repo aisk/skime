@@ -9,13 +9,27 @@ class TestCharacters(HelperVM):
     def test_character_predicates(self):
         assert self.eval("(char? #\\a)") is True
         assert self.eval('(char? "a")') is False
-        assert self.eval("(char<? #\\a #\\b #\\c)") is True
-        assert self.eval("(char-ci=? #\\a #\\A)") is True
         assert self.eval("(char-alphabetic? #\\a)") is True
         assert self.eval("(char-numeric? #\\7)") is True
         assert self.eval("(char-whitespace? #\\space)") is True
         assert self.eval("(char-upper-case? #\\A)") is True
         assert self.eval("(char-lower-case? #\\a)") is True
+
+    def test_character_comparisons(self):
+        cases = [
+            ("char=?", "#\\a", "#\\a", True),
+            ("char<?", "#\\a", "#\\b", True),
+            ("char>?", "#\\b", "#\\a", True),
+            ("char<=?", "#\\a", "#\\a", True),
+            ("char>=?", "#\\a", "#\\b", False),
+            ("char-ci=?", "#\\a", "#\\A", True),
+            ("char-ci<?", "#\\a", "#\\B", True),
+            ("char-ci>?", "#\\B", "#\\a", True),
+            ("char-ci<=?", "#\\a", "#\\A", True),
+            ("char-ci>=?", "#\\a", "#\\B", False),
+        ]
+        for procedure, left, right, expected in cases:
+            assert self.eval("(%s %s %s)" % (procedure, left, right)) is expected
 
     def test_character_conversion(self):
         assert self.eval("(char->integer #\\A)") == ord("A")
@@ -36,10 +50,20 @@ class TestStrings(HelperVM):
         assert self.eval('(string-copy "abc")') == "abc"
 
     def test_string_comparisons(self):
-        assert self.eval('(string=? "abc" "abc")') is True
-        assert self.eval('(string<? "abc" "abd" "b")') is True
-        assert self.eval('(string-ci=? "Scheme" "scheme")') is True
-        assert self.eval('(string-ci>=? "b" "A")') is True
+        cases = [
+            ("string=?", "a", "a", True),
+            ("string<?", "a", "b", True),
+            ("string>?", "b", "a", True),
+            ("string<=?", "a", "a", True),
+            ("string>=?", "a", "b", False),
+            ("string-ci=?", "Scheme", "scheme", True),
+            ("string-ci<?", "a", "B", True),
+            ("string-ci>?", "B", "a", True),
+            ("string-ci<=?", "a", "A", True),
+            ("string-ci>=?", "a", "B", False),
+        ]
+        for procedure, left, right, expected in cases:
+            assert self.eval('(%s "%s" "%s")' % (procedure, left, right)) is expected
 
     def test_string_list_conversion(self):
         assert self.eval('(string->list "abc")') == self.eval("'(#\\a #\\b #\\c)")

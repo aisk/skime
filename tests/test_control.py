@@ -61,6 +61,35 @@ class TestProcedures(HelperVM):
 
 
 class TestContinuations:
+    def test_apply_can_invoke_a_continuation(self):
+        assert VM().eval_string("""
+            (+ 10
+               (call/cc
+                 (lambda (escape)
+                   (apply escape '(5))
+                   99)))
+        """) == 15
+
+    def test_iteration_callbacks_can_invoke_a_continuation(self):
+        assert VM().eval_string("""
+            (+ 10
+               (call/cc
+                 (lambda (escape)
+                   (map (lambda (value)
+                          (if (= value 2) (escape value) value))
+                        '(1 2 3))
+                   99)))
+        """) == 12
+        assert VM().eval_string("""
+            (+ 10
+               (call/cc
+                 (lambda (escape)
+                   (for-each (lambda (value)
+                               (if (= value 2) (escape value)))
+                             '(1 2 3))
+                   99)))
+        """) == 12
+
     def test_continuation_can_be_invoked_after_capture(self):
         vm = VM()
         vm.eval_string("(define return #f)")
@@ -73,6 +102,10 @@ class TestContinuations:
         """) == 2
         assert vm.eval_string("(return 22)") == 23
         assert vm.eval_string("(return 30)") == 31
+
+        location = vm.env.lookup_location("return")
+        continuation = location.env.read_local(location.idx)
+        assert vm.apply(continuation, [40]) == 41
 
     def test_continuation_requires_exactly_one_argument(self):
         vm = VM()

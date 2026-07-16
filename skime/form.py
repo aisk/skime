@@ -2,9 +2,6 @@ from io import StringIO
 
 from .compiler.disasm import disasm
 from .ctx import Context
-from .env import Environment
-from .errors import MiscError
-from .insns import run
 
 
 class Form(object):
@@ -29,7 +26,7 @@ class Form(object):
     def eval(self, env, vm):
         "Eval the form under env and vm."
         ctx = Context(self, env, vm.ctx)
-        return run(ctx)
+        return vm.run_context(ctx)
 
     def disasm(self):
         "Show the disassemble of the instructions of the form. Useful for debug."

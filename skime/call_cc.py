@@ -1,6 +1,3 @@
-from .errors import WrongArgNumber
-
-
 class Continuation(object):
     def __init__(self, ctx, ip_displacement, n_pop):
         self.ctx = ctx.clone()

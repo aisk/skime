@@ -10,11 +10,9 @@ from .compiler.compiler import Compiler
 from .compiler.parser import parse
 from .ctx import Context
 from .env import Environment
-from .errors import WrongArgType
 from .insns import run
-from .prim import Primitive, load_primitives
-from .proc import Procedure
-from .types.pair import Pair
+from .invoke import CallFrame, ContextTransfer, invoke
+from .prim import load_primitives
 
 
 class VM(object):
@@ -25,6 +23,7 @@ class VM(object):
         load_primitives(self.env)
 
         self.ctx = Context(None, self.env, vm=self)
+        self._run_depth = 0
 
         self.load(os.path.join(os.path.dirname(__file__), "scheme", "prim.scm"))
 
@@ -42,23 +41,26 @@ class VM(object):
         return self.run(self.compiler.compile(parse(script), self.env))
 
     def apply(self, proc, args):
-        if isinstance(proc, Procedure):
-            proc.check_arity(len(args))
+        try:
+            result = invoke(proc, args, self.ctx, self)
+        except ContextTransfer as transfer:
+            if self._run_depth > 0:
+                raise
+            return self.run_context(transfer.context)
 
-            ctx = Context(proc, proc.env.dup(), self.ctx)
-            for i in range(proc.fixed_argc):
-                ctx.env.assign_local(i, args[i])
-            if proc.fixed_argc != proc.argc:
-                rest = None
-                for i in range(len(args) - 1, proc.fixed_argc - 1, -1):
-                    rest = Pair(args[i], rest)
-                ctx.env.assign_local(proc.fixed_argc, rest)
+        if isinstance(result, CallFrame):
+            return self.run_context(result.context)
+        return result.value
 
-            return run(ctx)
-
-        elif isinstance(proc, Primitive):
-            proc.check_arity(len(args))
-            return proc.call(self, *args)
-
-        else:
-            raise WrongArgType("Not a skime callable: %s" % proc)
+    def run_context(self, ctx):
+        self._run_depth += 1
+        try:
+            while True:
+                try:
+                    return run(ctx)
+                except ContextTransfer as transfer:
+                    if self._run_depth > 1:
+                        raise
+                    ctx = transfer.context
+        finally:
+            self._run_depth -= 1

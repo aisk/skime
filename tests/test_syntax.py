@@ -36,6 +36,7 @@ class TestSyntax(HelperVM):
         assert self.eval("((lambda (x . y) x) 1)") == 1
         assert self.eval("((lambda (x . y) y) 1)") == None
         assert self.eval("((lambda (x . y) (first y)) 1 2 3)") == 2
+        pytest.raises(SyntaxError, self.eval, "(lambda)")
 
     def test_call(self):
         assert self.eval("(- 5 4)") == 1
@@ -45,6 +46,7 @@ class TestSyntax(HelperVM):
         pytest.raises(SyntaxError, self.eval, "(define)")
         pytest.raises(SyntaxError, self.eval, "(define foo)")
         pytest.raises(SyntaxError, self.eval, "(define foo 5 6)")
+        pytest.raises(SyntaxError, self.eval, "(define (1 x) x)")
 
         assert self.eval("(begin (define (foo x) x) (foo 5))") == 5
         assert self.eval("(begin (define (foo)) (foo))") == None
@@ -76,6 +78,11 @@ class TestSyntax(HelperVM):
 
         assert self.eval("(let () #t)") == True
         assert self.eval("(let ())") == None
+        pytest.raises(SyntaxError, self.eval, "(let ((a 1 2)) a)")
+
+    def test_quote(self):
+        pytest.raises(SyntaxError, self.eval, "(quote)")
+        pytest.raises(SyntaxError, self.eval, "(quote 1 2)")
 
     def test_do(self):
         assert self.eval("""

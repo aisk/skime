@@ -283,7 +283,7 @@ class Compiler(object):
                 base_builder.emit("ret")
 
         except AttributeError as e:
-            raise SyntaxError("Broken lambda expression: " + e.message)
+            raise SyntaxError("Broken lambda expression: " + str(e))
 
     def generate_let(self, bdr, expr, keep=True, tail=False):
         """\
@@ -302,7 +302,11 @@ class Compiler(object):
         if isinstance(bindings, pair):
             while isinstance(bindings, pair):
                 binding = bindings.first
-                if not isinstance(binding, pair) or not isinstance(binding.rest, pair):
+                if (
+                    not isinstance(binding, pair)
+                    or not isinstance(binding.rest, pair)
+                    or binding.rest.rest is not None
+                ):
                     raise SyntaxError(
                         "Invalid binding for let expression: %s" % binding
                     )
@@ -348,6 +352,7 @@ class Compiler(object):
                 not isinstance(binding, pair)
                 or not isinstance(binding.first, sym)
                 or not isinstance(binding.rest, pair)
+                or binding.rest.rest is not None
             ):
                 raise SyntaxError("Invalid binding for letrec expression: %s" % binding)
             name = self.filter_sc(binding.first).name
@@ -395,6 +400,7 @@ class Compiler(object):
                 not isinstance(binding, pair)
                 or not isinstance(binding.first, sym)
                 or not isinstance(binding.rest, pair)
+                or binding.rest.rest is not None
             ):
                 raise SyntaxError("Invalid binding for let* expression: %s" % binding)
             name = self.filter_sc(binding.first).name
@@ -447,6 +453,9 @@ class Compiler(object):
         else:
             raise SyntaxError("Invalid define expression")
 
+        if not isinstance(var, sym):
+            raise SyntaxError("Invalid define expression")
+
         # first define local, then generate value. This allow
         # recursive function to be compiled properly.
         bdr.def_local(var.name)
@@ -485,6 +494,8 @@ class Compiler(object):
             bdr.emit("ret")
 
     def generate_quote(self, bdr, expr, keep=True, tail=False):
+        if not isinstance(expr, pair) or expr.rest is not None:
+            raise SyntaxError("quote expects exactly one expression")
         expr = expr.first
         if isinstance(expr, DynamicClosure):
             expr = expr.expression
@@ -596,7 +607,17 @@ class Compiler(object):
         steps = []
         while isinstance(init_spec, pair):
             spec = init_spec.first
-            if not isinstance(spec, pair) or not isinstance(spec.rest, pair):
+            if (
+                not isinstance(spec, pair)
+                or not isinstance(spec.rest, pair)
+                or (
+                    spec.rest.rest is not None
+                    and (
+                        not isinstance(spec.rest.rest, pair)
+                        or spec.rest.rest.rest is not None
+                    )
+                )
+            ):
                 raise SyntaxError("Invalid init spec for do expression: %s" % spec)
             var = self.filter_sc(spec.first)
             if not isinstance(var, sym):

@@ -162,6 +162,7 @@ class TestMap(HelperVM):
         )
         pytest.raises(WrongArgType, self.eval, "(map + '(1 2 3 . 4))")
         pytest.raises(MiscError, self.eval, "(map + '(1 2) '(3 4 5))")
+        pytest.raises(MiscError, self.eval, "(map + '(1 2 3) '(4 5))")
 
 
 class TestConversion(HelperVM):

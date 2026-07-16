@@ -538,26 +538,19 @@ def prim_apply(vm, proc, *args):
 
 def prim_map(vm, proc, *lists):
     res = []
+    lists = list(lists)
     while True:
-        args = []
-        end = False
-        lists = list(lists)
-        for i in range(len(lists)):
-            lst = lists[i]
-            if not isinstance(lst, pair):
-                if lst is None:
-                    end = True
-                else:
-                    raise WrongArgType("Arguments of map should be valid lists.")
-            else:
-                if end:
-                    raise MiscError(
-                        "Lists supplied to map should be all of the same length."
-                    )
-                args.append(lst.first)
-                lists[i] = lst.rest
-        if end:
+        if any(lst is not None and not isinstance(lst, pair) for lst in lists):
+            raise WrongArgType("Arguments of map should be valid lists.")
+        ended = [lst is None for lst in lists]
+        if any(ended):
+            if not all(ended):
+                raise MiscError(
+                    "Lists supplied to map should be all of the same length."
+                )
             break
+        args = [lst.first for lst in lists]
+        lists = [lst.rest for lst in lists]
         res.append(vm.apply(proc, args))
     rest = None
     for x in reversed(res):

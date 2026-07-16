@@ -522,6 +522,7 @@ class VariableTemplate(Template):
 
 class SequenceTemplate(Template):
     "Template that aggregate a sequence of sub-templates."
+
     default_tail = ConstantTemplate(None)
 
     def __init__(self):

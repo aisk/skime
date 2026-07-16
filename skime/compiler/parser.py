@@ -10,6 +10,7 @@ def parse(text, name="__unknown__"):
 
 class Parser(object):
     "A simple recursive descent parser for Scheme."
+
     sym_quote = sym("quote")
     sym_quasiquote = sym("quasiquote")
     sym_unquote = sym("unquote")

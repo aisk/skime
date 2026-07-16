@@ -45,29 +45,19 @@ class TestLogic(HelperVM):
         assert self.eval("(or 1 2 3)") == 1
         assert self.eval("(or #f 2)") == 2
         assert self.eval("(or #f #f)") == False
-        assert (
-            self.eval(
-                """(begin
+        assert self.eval("""(begin
                               (define foo 2)
                               (or #f (set! foo 3) (set! foo 4))
-                              foo)"""
-            )
-            == 3
-        )
+                              foo)""") == 3
 
         assert self.eval("(and)") == True
         assert self.eval("(and #t)") == True
         assert self.eval("(and 1 2 3)") == 3
         assert self.eval("(and #t 2)") == 2
-        assert (
-            self.eval(
-                """(begin
+        assert self.eval("""(begin
                               (define foo 2)
                               (and #t (set! foo 3) (set! foo 4))
-                              foo)"""
-            )
-            == 4
-        )
+                              foo)""") == 4
 
     def test_compare(self):
         assert self.eval("(< -1 1)") == True
@@ -102,22 +92,12 @@ class TestList(HelperVM):
         assert self.eval("(rest (pair 1 2))") == 2
         assert self.eval("(cdr (pair 1 2))") == 2
 
-        assert (
-            self.eval(
-                """(begin (define foo (pair 1 2))
+        assert self.eval("""(begin (define foo (pair 1 2))
                                    (set-car! foo 3)
-                                   foo)"""
-            )
-            == pair(3, 2)
-        )
-        assert (
-            self.eval(
-                """(begin (define foo (pair 1 2))
+                                   foo)""") == pair(3, 2)
+        assert self.eval("""(begin (define foo (pair 1 2))
                                    (set-cdr! foo 3)
-                                   foo)"""
-            )
-            == pair(1, 3)
-        )
+                                   foo)""") == pair(1, 3)
 
     def test_list(self):
         assert self.eval("(list 1 2 3)") == pair(1, pair(2, pair(3, None)))

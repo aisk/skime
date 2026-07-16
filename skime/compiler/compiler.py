@@ -290,7 +290,7 @@ class Compiler(object):
         (let ((var1 val1) (var2 val2)) expr1 expr2)
                           ||
                          _||_
-                          \/
+                          \\/
         ((lambda (var1 var2) expr1 expr2) val1 val2)
         """
         if not isinstance(expr, pair):

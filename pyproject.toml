@@ -1,21 +1,31 @@
-[tool.poetry]
+[project]
 name = "skime"
 version = "0.2.1"
 description = ""
-authors = []
+readme = { file = "README", content-type = "text/plain" }
+requires-python = ">=3.10,<4.0"
+dependencies = []
 
-[tool.poetry.dependencies]
-python = "^3.7"
+[project.scripts]
+skime = "skime.__main__:main"
 
-[tool.poetry.dev-dependencies]
-pytest = "^7.1.2"
-PyYAML = "^6.0"
-isort = "^5.10.1"
-black = "^22.6.0"
+[dependency-groups]
+dev = [
+    "black>=26.5.1",
+    "isort>=8.0.1",
+    "pytest>=9.1.1",
+    "pyyaml>=6.0.3",
+]
 
-[tool.poetry.scripts]
-skime = 'skime.__main__:main'
+[tool.uv]
+required-version = "==0.11.18"
+
+[tool.black]
+target-version = ["py310"]
+
+[tool.setuptools.package-data]
+skime = ["iset.yml", "scheme/*.scm"]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"

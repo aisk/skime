@@ -831,7 +831,11 @@ def prim_symbol_to_string(vm, s):
 
 
 def prim_number_to_string(vm, num, radix=10):
+    type_check(num, (int, float, complex))
     if radix == 10:
+        if isinstance(num, complex):
+            sign = "+" if num.imag >= 0 else "-"
+            return "%s%s%si" % (num.real, sign, abs(num.imag))
         return str(num)
     type_check(num, (int, int))
     minus = False

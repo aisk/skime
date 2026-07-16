@@ -40,3 +40,8 @@ class TestR5RSNumbers(HelperVM):
         assert self.eval("(magnitude 3+4i)") == 5
         assert self.eval("(angle -1)") == pytest.approx(math.pi)
         assert self.eval("(magnitude (make-polar 2 1))") == pytest.approx(2)
+
+    def test_complex_number_string_round_trip(self):
+        assert self.eval("(string->number (number->string 3+4i))") == 3 + 4j
+        assert self.eval("(string->number (number->string 3-4i))") == 3 - 4j
+        pytest.raises(WrongArgType, self.eval, "(number->string #t)")

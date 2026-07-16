@@ -108,7 +108,7 @@ class TestQuote(object):
                         ),
                         pair(
                             pair(
-                                sym("unquote-slicing"),
+                                sym("unquote-splicing"),
                                 pair(pair(sym("list"), pair(1, pair(2, None))), None),
                             ),
                             None,

@@ -17,6 +17,9 @@ class Compiler(object):
     sym_if = sym("if")
     sym_lambda = sym("lambda")
     sym_quote = sym("quote")
+    sym_quasiquote = sym("quasiquote")
+    sym_unquote = sym("unquote")
+    sym_unquote_splicing = sym("unquote-splicing")
     sym_or = sym("or")
     sym_and = sym("and")
     sym_define_syntax = sym("define-syntax")
@@ -26,6 +29,7 @@ class Compiler(object):
     sym_letstar = sym("let*")
     sym_do = sym("do")
     sym_cond = sym("cond")
+    sym_case = sym("case")
     sym_call_cc = sym("call/cc")
     sym_call_cc2 = sym("call-with-current-continuation")
 
@@ -108,6 +112,7 @@ class Compiler(object):
             Compiler.sym_define: self.generate_define,
             Compiler.sym_set_x: self.generate_set_x,
             Compiler.sym_quote: self.generate_quote,
+            Compiler.sym_quasiquote: self.generate_quasiquote,
             Compiler.sym_or: self.generate_or,
             Compiler.sym_and: self.generate_and,
             Compiler.sym_define_syntax: self.generate_define_syntax,
@@ -116,6 +121,7 @@ class Compiler(object):
             Compiler.sym_letstar: self.generate_letstar,
             Compiler.sym_do: self.generate_do,
             Compiler.sym_cond: self.generate_cond,
+            Compiler.sym_case: self.generate_case,
             Compiler.sym_call_cc: self.generate_call_cc,
             Compiler.sym_call_cc2: self.generate_call_cc,
         }
@@ -299,6 +305,8 @@ class Compiler(object):
         """
         if not isinstance(expr, pair):
             raise SyntaxError("Invalid let expression")
+        if isinstance(expr.first, sym):
+            return self.generate_named_let(bdr, expr, keep=keep, tail=tail)
         bindings = expr.first
         param = []
         args = []
@@ -336,6 +344,43 @@ class Compiler(object):
             bdr.emit("call", argc)
             if not keep:
                 bdr.emit("pop")
+
+    def generate_named_let(self, bdr, expr, keep=True, tail=False):
+        name = expr.first
+        expr = expr.rest
+        if not isinstance(expr, pair):
+            raise SyntaxError("Invalid named let expression")
+
+        bindings = expr.first
+        body = expr.rest
+        names = []
+        values = []
+        while isinstance(bindings, pair):
+            binding = bindings.first
+            if (
+                not isinstance(binding, pair)
+                or not isinstance(binding.first, sym)
+                or not isinstance(binding.rest, pair)
+                or binding.rest.rest is not None
+            ):
+                raise SyntaxError("Invalid binding for named let: %s" % binding)
+            names.append(binding.first)
+            values.append(binding.rest.first)
+            bindings = bindings.rest
+        if bindings is not None:
+            raise SyntaxError("Invalid bindings for named let")
+
+        lambda_expr = pair(
+            Compiler.sym_lambda,
+            pair(self.make_list(names), body),
+        )
+        recursive_binding = self.make_list([name, lambda_expr])
+        letrec_expr = pair(
+            Compiler.sym_letrec,
+            pair(self.make_list([recursive_binding]), pair(name, None)),
+        )
+        call_expr = pair(letrec_expr, self.make_list(values))
+        self.generate_expr(bdr, call_expr, keep=keep, tail=tail)
 
     def generate_letrec(self, bdr, expr, keep=True, tail=False):
         if not isinstance(expr, pair):
@@ -507,6 +552,73 @@ class Compiler(object):
             bdr.emit("push_literal", expr)
             if tail:
                 bdr.emit("ret")
+
+    def generate_quasiquote(self, bdr, expr, keep=True, tail=False):
+        if not isinstance(expr, pair) or expr.rest is not None:
+            raise SyntaxError("quasiquote expects exactly one expression")
+        expanded = self.expand_quasiquote(expr.first)
+        self.generate_expr(bdr, expanded, keep=keep, tail=tail)
+
+    def expand_quasiquote(self, expr, depth=1):
+        if not isinstance(expr, pair):
+            return self.make_call(Compiler.sym_quote, expr)
+
+        if expr.first == Compiler.sym_unquote:
+            value = self.single_form_argument("unquote", expr.rest)
+            if depth == 1:
+                return value
+            return self.quoted_form(
+                Compiler.sym_unquote, self.expand_quasiquote(value, depth - 1)
+            )
+
+        if expr.first == Compiler.sym_quasiquote:
+            value = self.single_form_argument("quasiquote", expr.rest)
+            return self.quoted_form(
+                Compiler.sym_quasiquote, self.expand_quasiquote(value, depth + 1)
+            )
+
+        first = expr.first
+        if (
+            depth == 1
+            and isinstance(first, pair)
+            and first.first == Compiler.sym_unquote_splicing
+        ):
+            value = self.single_form_argument("unquote-splicing", first.rest)
+            return self.make_call(
+                sym("append"), value, self.expand_quasiquote(expr.rest, depth)
+            )
+
+        if expr.first == Compiler.sym_unquote_splicing and depth == 1:
+            raise SyntaxError("unquote-splicing is only valid in a list")
+
+        return self.make_call(
+            sym("cons"),
+            self.expand_quasiquote(first, depth),
+            self.expand_quasiquote(expr.rest, depth),
+        )
+
+    def quoted_form(self, keyword, value):
+        return self.make_call(
+            sym("cons"),
+            self.make_call(Compiler.sym_quote, keyword),
+            self.make_call(
+                sym("cons"), value, self.make_call(Compiler.sym_quote, None)
+            ),
+        )
+
+    def single_form_argument(self, name, expr):
+        if not isinstance(expr, pair) or expr.rest is not None:
+            raise SyntaxError("%s expects exactly one expression" % name)
+        return expr.first
+
+    def make_call(self, operator, *args):
+        return pair(operator, self.make_list(args))
+
+    def make_list(self, values):
+        result = None
+        for value in reversed(list(values)):
+            result = pair(value, result)
+        return result
 
     def generate_or(self, bdr, expr, keep=True, tail=False):
         lbl_end = self.next_label()
@@ -698,7 +810,7 @@ class Compiler(object):
 
             if pred == sym("else"):
                 if body is None:
-                    bdr.emit("push_true")
+                    bdr.emit("push_nil")
                 else:
                     if not isinstance(body, pair):
                         raise SyntaxError("Invalid cond clause: %s" % cond_expr)
@@ -712,6 +824,7 @@ class Compiler(object):
                         bdr.emit("call", 1)
                     else:
                         self.generate_body(bdr, body, keep=True, tail=False)
+                bdr.emit("goto", lbl_end)
                 break
 
             else:
@@ -747,6 +860,46 @@ class Compiler(object):
             bdr.emit("pop")
         if tail:
             bdr.emit("ret")
+
+    def generate_case(self, bdr, expr, keep=True, tail=False):
+        if not isinstance(expr, pair):
+            raise SyntaxError("case expects a key expression")
+        key = expr.first
+        clauses = expr.rest
+        temporary = sym("#<case-key-%s>" % self.next_label())
+        cond_clauses = []
+
+        while isinstance(clauses, pair):
+            clause = clauses.first
+            if not isinstance(clause, pair) or not isinstance(clause.rest, pair):
+                raise SyntaxError("Invalid case clause: %s" % clause)
+            datums = clause.first
+            body = clause.rest
+            if datums == sym("else"):
+                if clauses.rest is not None:
+                    raise SyntaxError("else must be the last case clause")
+                predicate = datums
+            else:
+                if datums is not None and not isinstance(datums, pair):
+                    raise SyntaxError("Invalid case datum list: %s" % datums)
+                predicate = self.make_call(
+                    sym("memv"),
+                    temporary,
+                    self.make_call(Compiler.sym_quote, datums),
+                )
+            cond_clauses.append(pair(predicate, body))
+            clauses = clauses.rest
+
+        if clauses is not None:
+            raise SyntaxError("Invalid case clauses")
+
+        binding = self.make_list([temporary, key])
+        cond_expr = pair(Compiler.sym_cond, self.make_list(cond_clauses))
+        transformed = pair(
+            Compiler.sym_let,
+            pair(self.make_list([binding]), pair(cond_expr, None)),
+        )
+        self.generate_expr(bdr, transformed, keep=keep, tail=tail)
 
     def generate_call_cc(self, bdr, expr, keep=True, tail=False):
         if not isinstance(expr, pair):

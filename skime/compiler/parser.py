@@ -14,7 +14,7 @@ class Parser(object):
     sym_quote = sym("quote")
     sym_quasiquote = sym("quasiquote")
     sym_unquote = sym("unquote")
-    sym_unquote_slicing = sym("unquote-slicing")
+    sym_unquote_splicing = sym("unquote-splicing")
 
     def __init__(self, text, name="__unknown__"):
         self.text = text
@@ -153,7 +153,7 @@ class Parser(object):
     def parse_unquote(self):
         self.eat(",")
         if self.eat("@"):
-            return pair(Parser.sym_unquote_slicing, pair(self.parse_expr(), None))
+            return pair(Parser.sym_unquote_splicing, pair(self.parse_expr(), None))
         return pair(Parser.sym_unquote, pair(self.parse_expr(), None))
 
     def parse_symbol(self):

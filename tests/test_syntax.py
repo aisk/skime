@@ -112,6 +112,8 @@ class TestSyntax(HelperVM):
         (cond (#f 5 6)
               (else))""") == None
 
+        assert self.eval("(cond (#f 1) (else 2))") == 2
+
         pytest.raises(SyntaxError, self.eval, "(cond)")
         pytest.raises(
             SyntaxError,

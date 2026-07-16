@@ -82,6 +82,8 @@ class Parser(object):
             num2 = self.parse_unum()
             if num2 is None:
                 self.report_error("Invalid number format, expecting denominator")
+            if num2 == 0:
+                self.report_error("Invalid number format, denominator cannot be zero")
             num1 = float(num1) / num2
         num1 *= sign1
         if self.peak() in ["+", "-"]:

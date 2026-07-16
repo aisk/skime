@@ -35,6 +35,7 @@ class TestNumber(object):
     def test_rational(self):
         assert p("6/3") == 2
         pytest.approx(p("1/3"), 1.0 / 3)
+        pytest.raises(ParseError, p, "1/0")
 
 
 class TestString(object):

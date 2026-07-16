@@ -83,11 +83,13 @@ class Compiler(object):
             if tail:
                 bdr.emit("ret")
 
-        while body is not None:
+        while isinstance(body, pair):
             expr = body.first
             body = body.rest
             will_keep = keep and body is None
             self.generate_expr(bdr, expr, keep=will_keep, tail=will_keep and tail)
+        if body is not None:
+            raise SyntaxError("Expected a proper list of expressions")
 
     def generate_expr(self, bdr, expr, keep=True, tail=False):
         """\
@@ -130,7 +132,7 @@ class Compiler(object):
                     bdr.emit("ret")
 
         elif isinstance(expr, pair):
-            routine = mapping.get(expr.first)
+            routine = mapping.get(expr.first) if isinstance(expr.first, sym) else None
             if routine is not None:
                 routine(bdr, expr.rest, keep=keep, tail=tail)
             else:
@@ -175,6 +177,8 @@ class Compiler(object):
                         self.generate_expr(bdr, arg.first, keep=True, tail=False)
                         arg = arg.rest
                         argc += 1
+                    if arg is not None:
+                        raise SyntaxError("Expected a proper argument list")
                     self.generate_expr(bdr, expr.first, keep=True, tail=False)
 
                     if tail:

@@ -15,6 +15,7 @@ class TestSyntax(HelperVM):
         assert self.eval("(begin 1 2 3)") == 3
         assert self.eval("(begin 1)") == 1
         assert self.eval("(begin)") == None
+        pytest.raises(SyntaxError, self.eval, "(begin 1 . 2)")
 
     def test_if(self):
         assert self.eval("(if #t 1 2)") == 1
@@ -41,6 +42,7 @@ class TestSyntax(HelperVM):
     def test_call(self):
         assert self.eval("(- 5 4)") == 1
         assert self.eval("(pair 1 ((lambda () 2)))") == pair(1, 2)
+        pytest.raises(SyntaxError, self.eval, "(+ 1 . 2)")
 
     def test_define(self):
         assert self.eval("(begin (define foo 5) foo)") == 5

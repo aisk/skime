@@ -29,7 +29,7 @@ class Symbol(object):
     def get_name(self):
         return self._name
 
-    def set_name(self):
+    def set_name(self, value):
         raise AttributeError("Can't modify name of a symbol.")
 
     name = property(get_name, set_name)

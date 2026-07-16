@@ -39,8 +39,7 @@ class Pair(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def __hash__(self):
-        return id(self)
+    __hash__ = None
 
     def __str__(self):
         segments = [self.first.__str__()]

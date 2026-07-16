@@ -1,10 +1,21 @@
 [project]
 name = "skime"
 version = "0.2.1"
-description = ""
-readme = { file = "README", content-type = "text/plain" }
+description = "A small Scheme implementation in Python"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10,<4.0"
 dependencies = []
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+]
+
+[project.urls]
+Homepage = "https://github.com/aisk/skime"
+Repository = "https://github.com/aisk/skime"
+"Original project" = "https://github.com/pluskid/skime"
 
 [project.scripts]
 skime = "skime.__main__:main"
@@ -27,5 +38,5 @@ target-version = ["py310"]
 skime = ["iset.yml", "scheme/*.scm"]
 
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"

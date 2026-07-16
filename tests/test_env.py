@@ -13,3 +13,12 @@ def test_alloc_local_can_replace_a_value_with_none():
     env.alloc_local("value", None)
 
     assert env.read_local(idx) is None
+
+
+def test_environments_only_hold_lexical_state():
+    parent = Environment()
+    child = Environment(parent)
+
+    assert child.parent is parent
+    assert not hasattr(parent, "vm")
+    assert not hasattr(child, "vm")

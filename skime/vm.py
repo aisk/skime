@@ -6,7 +6,6 @@
 
 import os.path
 
-from . import insns
 from .compiler.compiler import Compiler
 from .compiler.parser import parse
 from .ctx import Context
@@ -16,7 +15,6 @@ from .insns import run
 from .prim import Primitive, load_primitives
 from .proc import Procedure
 from .types.pair import Pair
-from .types.pair import Pair as pair
 
 
 class VM(object):
@@ -24,10 +22,9 @@ class VM(object):
         self.compiler = Compiler()
 
         self.env = Environment()
-        self.env.vm = self
         load_primitives(self.env)
 
-        self.ctx = Context(None, self.env, None)
+        self.ctx = Context(None, self.env, vm=self)
 
         self.load(os.path.join(os.path.dirname(__file__), "scheme", "prim.scm"))
 

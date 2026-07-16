@@ -1,12 +1,14 @@
-from .prim import load_primitives
-
-
 class Context(object):
-    def __init__(self, form, env, parent=None):
+    def __init__(self, form, env, parent=None, vm=None):
         self.form = form
         self.env = env
-        self.vm = env.vm
         self.parent = parent
+        if parent is not None:
+            self.vm = parent.vm
+        elif vm is not None:
+            self.vm = vm
+        else:
+            raise ValueError("A root context requires a VM")
 
         self.ip = 0
         if self.form is not None:
@@ -17,7 +19,7 @@ class Context(object):
 
     def clone(self):
         "Make a clone of the context object."
-        ctx = Context(self.form, self.env, self.parent)
+        ctx = Context(self.form, self.env, self.parent, vm=self.vm)
         ctx.ip = self.ip
         ctx.stack = list(self.stack)
         return ctx

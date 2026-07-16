@@ -1,5 +1,6 @@
 import math
 from functools import wraps
+from itertools import product
 
 from .errors import MiscError, WrongArgNumber, WrongArgType
 from .proc import Procedure
@@ -85,7 +86,7 @@ def load_primitives(env):
     env.alloc_local(">=", PyPrimitive(more_equal, (2, -1)))
 
     env.alloc_local("equal?", PyPrimitive(prim_equal, (2, 2)))
-    env.alloc_local("eq?", PyPrimitive(prim_eqv, (2, 2)))
+    env.alloc_local("eq?", PyPrimitive(prim_eq, (2, 2)))
     env.alloc_local("eqv?", PyPrimitive(prim_eqv, (2, 2)))
 
     env.alloc_local("log", PyPrimitive(prim_log, (1, 1)))
@@ -109,6 +110,22 @@ def load_primitives(env):
     env.alloc_local("set-cdr!", PyPrimitive(prim_set_rest_x, (2, 2)))
 
     env.alloc_local("list", PyPrimitive(prim_list, (-1, -1)))
+    env.alloc_local("length", PyPrimitive(prim_length, (1, 1)))
+    env.alloc_local("append", PyPrimitive(prim_append, (-1, -1)))
+    env.alloc_local("reverse", PyPrimitive(prim_reverse, (1, 1)))
+    env.alloc_local("list-tail", PyPrimitive(prim_list_tail, (2, 2)))
+    env.alloc_local("list-ref", PyPrimitive(prim_list_ref, (2, 2)))
+    env.alloc_local("memq", PyPrimitive(prim_memq, (2, 2)))
+    env.alloc_local("memv", PyPrimitive(prim_memv, (2, 2)))
+    env.alloc_local("member", PyPrimitive(prim_member, (2, 2)))
+    env.alloc_local("assq", PyPrimitive(prim_assq, (2, 2)))
+    env.alloc_local("assv", PyPrimitive(prim_assv, (2, 2)))
+    env.alloc_local("assoc", PyPrimitive(prim_assoc, (2, 2)))
+
+    for length in range(2, 5):
+        for operations in product("ad", repeat=length):
+            name = "c%sr" % "".join(operations)
+            env.alloc_local(name, PyPrimitive(make_cxr(operations), (1, 1)))
 
     for t, name in [
         (bool, "boolean?"),
@@ -521,6 +538,90 @@ def prim_list(vm, *args):
     return lst
 
 
+def prim_length(vm, lst):
+    return sum(1 for _ in iter_list(lst))
+
+
+def prim_append(vm, *lists):
+    if not lists:
+        return None
+    result = lists[-1]
+    for lst in reversed(lists[:-1]):
+        values = list(iter_list(lst))
+        for value in reversed(values):
+            result = pair(value, result)
+    return result
+
+
+def prim_reverse(vm, lst):
+    result = None
+    for value in iter_list(lst):
+        result = pair(value, result)
+    return result
+
+
+def prim_list_tail(vm, lst, index):
+    type_check(index, int)
+    if index < 0:
+        raise WrongArgType("List index cannot be negative")
+    for _ in range(index):
+        type_check(lst, pair)
+        lst = lst.rest
+    return lst
+
+
+def prim_list_ref(vm, lst, index):
+    tail = prim_list_tail(vm, lst, index)
+    type_check(tail, pair)
+    return tail.first
+
+
+def find_member(obj, lst, predicate):
+    while isinstance(lst, pair):
+        if predicate(obj, lst.first):
+            return lst
+        lst = lst.rest
+    if lst is not None:
+        raise WrongArgType("Expected a proper list")
+    return False
+
+
+def prim_memq(vm, obj, lst):
+    return find_member(obj, lst, lambda a, b: prim_eq(vm, a, b))
+
+
+def prim_memv(vm, obj, lst):
+    return find_member(obj, lst, lambda a, b: prim_eqv(vm, a, b))
+
+
+def prim_member(vm, obj, lst):
+    return find_member(obj, lst, lambda a, b: prim_equal(vm, a, b))
+
+
+def find_assoc(obj, alist, predicate):
+    while isinstance(alist, pair):
+        entry = alist.first
+        type_check(entry, pair)
+        if predicate(obj, entry.first):
+            return entry
+        alist = alist.rest
+    if alist is not None:
+        raise WrongArgType("Expected a proper association list")
+    return False
+
+
+def prim_assq(vm, obj, alist):
+    return find_assoc(obj, alist, lambda a, b: prim_eq(vm, a, b))
+
+
+def prim_assv(vm, obj, alist):
+    return find_assoc(obj, alist, lambda a, b: prim_eqv(vm, a, b))
+
+
+def prim_assoc(vm, obj, alist):
+    return find_assoc(obj, alist, lambda a, b: prim_equal(vm, a, b))
+
+
 def prim_apply(vm, proc, *args):
     if len(args) == 0:
         return vm.apply(proc, args)
@@ -619,8 +720,14 @@ def prim_equal(vm, a, b):
     return a == b
 
 
-def prim_eqv(vm, a, b):
+def prim_eq(vm, a, b):
     return a is b
+
+
+def prim_eqv(vm, a, b):
+    if is_number(a) and is_number(b):
+        return type(a) is type(b) and a == b
+    return prim_eq(vm, a, b)
 
 
 ########################################
@@ -631,6 +738,21 @@ def make_type_predict(tt):
         return isinstance(obj, tt)
 
     return predict
+
+
+def make_cxr(operations):
+    def cxr(vm, obj):
+        for operation in reversed(operations):
+            type_check(obj, pair)
+            obj = obj.first if operation == "a" else obj.rest
+        return obj
+
+    cxr.__name__ = "c%sr" % "".join(operations)
+    return cxr
+
+
+def is_number(obj):
+    return not isinstance(obj, bool) and isinstance(obj, (int, float, complex))
 
 
 def type_check(obj, t):

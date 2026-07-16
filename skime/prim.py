@@ -293,19 +293,20 @@ def prim_min(vm, *args):
 def prim_quotient(vm, a, b):
     type_check(a, (int, int))
     type_check(b, (int, int))
-    return a / b
+    quotient = abs(a) // abs(b)
+    if (a < 0) != (b < 0):
+        quotient = -quotient
+    return quotient
 
 
-# remainder has the same sign as b
+# remainder has the same sign as a
 def prim_remainder(vm, a, b):
     type_check(a, (int, int))
     type_check(b, (int, int))
-    if a > 0:
-        return a % b
-    return (-a) % (-b)
+    return a - prim_quotient(vm, a, b) * b
 
 
-# modulo has the same sign as a
+# modulo has the same sign as b
 def prim_modulo(vm, a, b):
     type_check(a, (int, int))
     type_check(b, (int, int))
@@ -319,13 +320,16 @@ def gcd(a, b):
 
 
 def lcm(a, b):
-    return a * b / gcd(a, b)
+    if a == 0 or b == 0:
+        return 0
+    return abs(a // gcd(a, b) * b)
 
 
 def prim_gcd(vm, *args):
-    if args is None:
+    if len(args) == 0:
         return 0
     if len(args) == 1:
+        type_check(args[0], (int, int))
         return abs(args[0])
     a, b, args = args[0], args[1], args[2:]
     type_check(a, (int, int))
@@ -338,9 +342,10 @@ def prim_gcd(vm, *args):
 
 
 def prim_lcm(vm, *args):
-    if args is None:
+    if len(args) == 0:
         return 1
     if len(args) == 1:
+        type_check(args[0], (int, int))
         return abs(args[0])
     a, b, args = args[0], args[1], args[2:]
     type_check(a, (int, int))
@@ -411,10 +416,9 @@ def prim_acos(vm, arg):
 
 @type_error_decorator
 def prim_atan(vm, arg, *arg2):
-    if arg2 is None:
+    if len(arg2) == 0:
         return math.atan(arg)
-    else:
-        return math.atan(float(arg2[0]) / arg)
+    return math.atan2(arg, arg2[0])
 
 
 @type_error_decorator
@@ -581,17 +585,13 @@ def prim_number_to_string(vm, num, radix=10):
         num = -num
 
     if radix == 2:
-        ditigs = []
-        while num != 0:
-            digits.append(num & 1)
-            num = num >> 1
-        num.reverse()
-        fmt = "".join(num)
-
-    if radix == 8:
+        fmt = "%s" % format(num, "b")
+    elif radix == 8:
         fmt = "%o" % num
-    if radix == 16:
+    elif radix == 16:
         fmt = "%X" % num
+    else:
+        raise MiscError("Radix should be one of 2, 8, 10, or 16")
 
     if minus:
         return "-" + fmt
@@ -599,13 +599,16 @@ def prim_number_to_string(vm, num, radix=10):
 
 
 def prim_string_to_number(vm, s, radix=10):
+    type_check(s, str)
+    if not s:
+        return False
     try:
         return int(s, radix)
     except ValueError:
         if radix != 10:
             raise MiscError("Only radix 10 is permitted for decimal number")
         try:
-            if s[-1] == "i":
+            if s.endswith("i"):
                 # complex number
                 return complex(s[:-1] + "j")
             else:

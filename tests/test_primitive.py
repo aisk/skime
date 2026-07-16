@@ -1,3 +1,5 @@
+import math
+
 import pytest
 from helper import HelperVM
 
@@ -31,6 +33,14 @@ class TestArithmetic(HelperVM):
         assert self.eval("(/ 2)") == 0.5
         assert self.eval("(/ 2.0)") == 0.5
         pytest.raises(WrongArgNumber, self.eval, "(/)")
+
+        assert self.eval("(quotient -5 2)") == -2
+        assert self.eval("(remainder -5 -2)") == -1
+        assert self.eval("(gcd)") == 0
+        assert self.eval("(lcm)") == 1
+        assert self.eval("(lcm 0 0)") == 0
+        assert self.eval("(atan 1)") == pytest.approx(math.atan(1))
+        assert self.eval("(atan 1 -1)") == pytest.approx(math.atan2(1, -1))
 
 
 class TestLogic(HelperVM):
@@ -152,3 +162,12 @@ class TestMap(HelperVM):
         )
         pytest.raises(WrongArgType, self.eval, "(map + '(1 2 3 . 4))")
         pytest.raises(MiscError, self.eval, "(map + '(1 2) '(3 4 5))")
+
+
+class TestConversion(HelperVM):
+    def test_number_to_string(self):
+        assert self.eval("(number->string 5 2)") == "101"
+        assert self.eval("(number->string 0 2)") == "0"
+
+    def test_string_to_number(self):
+        assert self.eval('(string->number "")') is False

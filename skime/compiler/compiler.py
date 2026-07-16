@@ -100,6 +100,7 @@ class Compiler(object):
             if tail:
                 bdr.emit("ret")
 
+        self.predeclare_definitions(bdr, body)
         while isinstance(body, pair):
             expr = body.first
             body = body.rest
@@ -107,6 +108,23 @@ class Compiler(object):
             self.generate_expr(bdr, expr, keep=will_keep, tail=will_keep and tail)
         if body is not None:
             raise SyntaxError("Expected a proper list of expressions")
+
+    def predeclare_definitions(self, bdr, body):
+        while isinstance(body, pair):
+            expression = body.first
+            if (
+                not isinstance(expression, pair)
+                or expression.first != Compiler.sym_define
+                or not isinstance(expression.rest, pair)
+            ):
+                return
+            target = expression.rest.first
+            if isinstance(target, pair):
+                target = target.first
+            if not isinstance(target, sym):
+                raise SyntaxError("Invalid define expression")
+            bdr.def_local(target.name)
+            body = body.rest
 
     def generate_expr(self, bdr, expr, keep=True, tail=False):
         """\

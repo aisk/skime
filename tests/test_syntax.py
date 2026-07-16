@@ -57,6 +57,17 @@ class TestSyntax(HelperVM):
         assert self.eval("(begin (define (foo . x) (first x)) (foo 1))") == 1
         assert self.eval("(begin (define (foo . x) (first x)) (foo 1 2))") == 1
 
+    def test_mutually_recursive_internal_definitions(self):
+        assert self.eval("""
+                ((lambda (value)
+                   (define (even-value? n)
+                     (if (= n 0) #t (odd-value? (- n 1))))
+                   (define (odd-value? n)
+                     (if (= n 0) #f (even-value? (- n 1))))
+                   (even-value? value))
+                 10)
+                """) is True
+
     def test_set_x(self):
         assert self.eval("""
         (begin

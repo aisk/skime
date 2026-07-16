@@ -32,7 +32,8 @@ class Context(object):
 
     def pop_n(self, n):
         "Remove n values from the top of the stack."
-        del self.stack[-n:]
+        if n > 0:
+            del self.stack[-n:]
 
     def top(self, idx=1):
         "Get a value from the stack."

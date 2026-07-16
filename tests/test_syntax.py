@@ -40,6 +40,7 @@ class TestSyntax(HelperVM):
 
     def test_call(self):
         assert self.eval("(- 5 4)") == 1
+        assert self.eval("(pair 1 ((lambda () 2)))") == pair(1, 2)
 
     def test_define(self):
         assert self.eval("(begin (define foo 5) foo)") == 5

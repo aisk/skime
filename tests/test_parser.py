@@ -5,6 +5,7 @@ from skime.compiler.parser import parse as p
 from skime.errors import ParseError
 from skime.types.pair import Pair as pair
 from skime.types.symbol import Symbol as sym
+from skime.types.vector import Vector
 
 
 class TestNumber(object):
@@ -64,6 +65,15 @@ class TestBool(object):
     def test_bool(self):
         assert p("#t") == True
         assert p("#f") == False
+
+
+class TestVector(object):
+    def test_vector(self):
+        assert p("#(1 two (3))") == Vector([1, sym("two"), pair(3, None)])
+        assert p("#()") == Vector()
+
+    def test_invalid_vector(self):
+        pytest.raises(ParseError, p, "#(1 . 2)")
 
 
 class TestPair(object):

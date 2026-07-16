@@ -3,6 +3,7 @@ from ..form import Form
 from ..macro import DynamicClosure, Macro, SymbolClosure
 from ..types.pair import Pair as pair
 from ..types.symbol import Symbol as sym
+from ..types.vector import Vector
 from .builder import Builder
 
 
@@ -71,7 +72,7 @@ class Compiler(object):
         return None
 
     def self_evaluating(self, expr):
-        for t in [int, int, complex, float, str, str, bool, type(None)]:
+        for t in [int, int, complex, float, str, str, bool, type(None), Vector]:
             if isinstance(expr, t):
                 return True
         return False
@@ -560,6 +561,11 @@ class Compiler(object):
         self.generate_expr(bdr, expanded, keep=keep, tail=tail)
 
     def expand_quasiquote(self, expr, depth=1):
+        if isinstance(expr, Vector):
+            values = self.make_list(expr.elements)
+            return self.make_call(
+                sym("list->vector"), self.expand_quasiquote(values, depth)
+            )
         if not isinstance(expr, pair):
             return self.make_call(Compiler.sym_quote, expr)
 

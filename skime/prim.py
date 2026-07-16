@@ -6,6 +6,7 @@ from .errors import MiscError, WrongArgNumber, WrongArgType
 from .proc import Procedure
 from .types.pair import Pair as pair
 from .types.symbol import Symbol as sym
+from .types.vector import Vector
 
 
 class Primitive(object):
@@ -132,6 +133,7 @@ def load_primitives(env):
         (pair, "pair?"),
         (sym, "symbol?"),
         (str, "string?"),
+        (Vector, "vector?"),
         ((int, int, float, complex), "number?"),
         ((int, int, float), "rational?"),
         ((int, int, float), "real?"),
@@ -175,6 +177,14 @@ def load_primitives(env):
     env.alloc_local("number->string", PyPrimitive(prim_number_to_string, (1, 2)))
     env.alloc_local("string->number", PyPrimitive(prim_string_to_number, (1, 2)))
     env.alloc_local("string-append", PyPrimitive(prim_string_append, (-1, -1)))
+    env.alloc_local("make-vector", PyPrimitive(prim_make_vector, (1, 2)))
+    env.alloc_local("vector", PyPrimitive(prim_vector, (-1, -1)))
+    env.alloc_local("vector-length", PyPrimitive(prim_vector_length, (1, 1)))
+    env.alloc_local("vector-ref", PyPrimitive(prim_vector_ref, (2, 2)))
+    env.alloc_local("vector-set!", PyPrimitive(prim_vector_set_x, (3, 3)))
+    env.alloc_local("vector->list", PyPrimitive(prim_vector_to_list, (1, 1)))
+    env.alloc_local("list->vector", PyPrimitive(prim_list_to_vector, (1, 1)))
+    env.alloc_local("vector-fill!", PyPrimitive(prim_vector_fill_x, (2, 2)))
 
 
 def type_error_decorator(meth):
@@ -716,6 +726,47 @@ def prim_string_append(vm, *strings):
     return "".join(strings)
 
 
+def prim_make_vector(vm, size, *fill):
+    check_size(size)
+    value = fill[0] if fill else None
+    return Vector([value] * size)
+
+
+def prim_vector(vm, *elements):
+    return Vector(elements)
+
+
+def prim_vector_length(vm, vector):
+    type_check(vector, Vector)
+    return len(vector)
+
+
+def prim_vector_ref(vm, vector, index):
+    type_check(vector, Vector)
+    check_index(index, len(vector))
+    return vector.elements[index]
+
+
+def prim_vector_set_x(vm, vector, index, value):
+    type_check(vector, Vector)
+    check_index(index, len(vector))
+    vector.elements[index] = value
+
+
+def prim_vector_to_list(vm, vector):
+    type_check(vector, Vector)
+    return prim_list(vm, *vector.elements)
+
+
+def prim_list_to_vector(vm, lst):
+    return Vector(iter_list(lst))
+
+
+def prim_vector_fill_x(vm, vector, fill):
+    type_check(vector, Vector)
+    vector.elements[:] = [fill] * len(vector)
+
+
 def prim_equal(vm, a, b):
     return a == b
 
@@ -753,6 +804,18 @@ def make_cxr(operations):
 
 def is_number(obj):
     return not isinstance(obj, bool) and isinstance(obj, (int, float, complex))
+
+
+def check_size(size):
+    type_check(size, int)
+    if isinstance(size, bool) or size < 0:
+        raise WrongArgType("Expected a non-negative exact integer")
+
+
+def check_index(index, length):
+    check_size(index)
+    if index >= length:
+        raise WrongArgType("Index %d is out of bounds" % index)
 
 
 def type_check(obj, t):

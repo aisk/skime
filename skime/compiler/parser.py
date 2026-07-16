@@ -1,6 +1,7 @@
 from ..errors import ParseError
 from ..types.pair import Pair as pair
 from ..types.symbol import Symbol as sym
+from ..types.vector import Vector
 
 
 def parse(text, name="__unknown__"):
@@ -195,7 +196,15 @@ class Parser(object):
         return "".join(strings)
 
     def parse_vector(self):
-        pass
+        self.eat("#")
+        values = self.parse_list()
+        elements = []
+        while isinstance(values, pair):
+            elements.append(values.first)
+            values = values.rest
+        if values is not None:
+            self.report_error("Vector literals cannot contain a dotted tail")
+        return Vector(elements)
 
     def skip_all(self):
         "Skip all non-relevant characters."

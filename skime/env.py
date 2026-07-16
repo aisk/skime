@@ -34,7 +34,7 @@ class Undef(object):
 
     def __new__(cls):
         if cls.undef is None:
-            cls.undef = object.__init__(cls)
+            cls.undef = object.__new__(cls)
         return cls.undef
 
     def __repr__(self):

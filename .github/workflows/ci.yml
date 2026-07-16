@@ -24,6 +24,8 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: uv sync --locked
+    - name: Check generated instruction modules
+      run: uv run python -m skime.iset_gen --check
     - name: Lint with black / isort
       run: |
         uv run isort --check .

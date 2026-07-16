@@ -1,7 +1,9 @@
+import cmath
 import math
 from functools import wraps
 from itertools import product
 
+from .call_cc import Continuation
 from .errors import MiscError, WrongArgNumber, WrongArgType
 from .proc import Procedure
 from .types.character import Character
@@ -141,7 +143,7 @@ def load_primitives(env):
         ((int, int, float), "real?"),
         ((int, int, float, complex), "complex?"),
         ((int, int), "integer?"),
-        ((Procedure, Primitive), "procedure?"),
+        ((Procedure, Primitive, Continuation), "procedure?"),
     ]:
         env.alloc_local(name, PyPrimitive(make_type_predict(t), (1, 1)))
 
@@ -168,11 +170,19 @@ def load_primitives(env):
     env.alloc_local("atan", PyPrimitive(prim_atan, (1, 2)))
     env.alloc_local("sqrt", PyPrimitive(prim_sqrt, (1, 1)))
     env.alloc_local("expt", PyPrimitive(prim_expt, (2, 2)))
+    env.alloc_local("make-rectangular", PyPrimitive(prim_make_rectangular, (2, 2)))
+    env.alloc_local("make-polar", PyPrimitive(prim_make_polar, (2, 2)))
+    env.alloc_local("real-part", PyPrimitive(prim_real_part, (1, 1)))
+    env.alloc_local("imag-part", PyPrimitive(prim_imag_part, (1, 1)))
+    env.alloc_local("magnitude", PyPrimitive(prim_magnitude, (1, 1)))
+    env.alloc_local("angle", PyPrimitive(prim_angle, (1, 1)))
     env.alloc_local("null?", PyPrimitive(prim_null_p, (1, 1)))
     env.alloc_local("list?", PyPrimitive(prim_list_p, (1, 1)))
 
     env.alloc_local("apply", PyPrimitive(prim_apply, (1, -1)))
     env.alloc_local("map", PyPrimitive(prim_map, (2, -1)))
+    env.alloc_local("for-each", PyPrimitive(prim_for_each, (2, -1)))
+    env.alloc_local("load", PyPrimitive(prim_load, (1, 1)))
 
     env.alloc_local("string->symbol", PyPrimitive(prim_string_to_symbol, (1, 1)))
     env.alloc_local("symbol->string", PyPrimitive(prim_symbol_to_string, (1, 1)))
@@ -260,11 +270,13 @@ def type_error_decorator(meth):
 
 @type_error_decorator
 def plus(vm, *args):
+    type_check_all(args, (int, float, complex))
     return sum(args)
 
 
 @type_error_decorator
 def mul(vm, *args):
+    type_check_all(args, (int, float, complex))
     res = 1
     for x in args:
         res *= x
@@ -273,6 +285,7 @@ def mul(vm, *args):
 
 @type_error_decorator
 def minus(vm, num, *args):
+    type_check_all((num,) + args, (int, float, complex))
     if len(args) == 0:
         return -num
     for x in args:
@@ -282,6 +295,7 @@ def minus(vm, num, *args):
 
 @type_error_decorator
 def div(vm, num, *args):
+    type_check_all((num,) + args, (int, float, complex))
     if len(args) == 0:
         return 1.0 / num
     if isinstance(num, int):
@@ -308,6 +322,7 @@ def equal(vm, *args):
 
 
 def less(vm, a, b, *args):
+    type_check_all((a, b) + args, (int, float))
     if a >= b:
         return False
     for x in args:
@@ -318,6 +333,7 @@ def less(vm, a, b, *args):
 
 
 def more(vm, a, b, *args):
+    type_check_all((a, b) + args, (int, float))
     if a <= b:
         return False
     for x in args:
@@ -328,6 +344,7 @@ def more(vm, a, b, *args):
 
 
 def less_equal(vm, a, b, *args):
+    type_check_all((a, b) + args, (int, float))
     if a > b:
         return False
     for x in args:
@@ -338,6 +355,7 @@ def less_equal(vm, a, b, *args):
 
 
 def more_equal(vm, a, b, *args):
+    type_check_all((a, b) + args, (int, float))
     if a < b:
         return False
     for x in args:
@@ -368,10 +386,12 @@ def prim_even_p(vm, arg):
 
 
 def prim_max(vm, *args):
+    type_check_all(args, (int, float))
     return max(args)
 
 
 def prim_min(vm, *args):
+    type_check_all(args, (int, float))
     return min(args)
 
 
@@ -444,16 +464,19 @@ def prim_lcm(vm, *args):
 
 @type_error_decorator
 def prim_floor(vm, a):
+    type_check(a, (int, float))
     return math.floor(a)
 
 
 @type_error_decorator
 def prim_ceiling(vm, a):
+    type_check(a, (int, float))
     return math.ceil(a)
 
 
 @type_error_decorator
 def prim_truncate(vm, a):
+    type_check(a, (int, float))
     if a > 0:
         return math.floor(a)
     return math.ceil(a)
@@ -461,63 +484,112 @@ def prim_truncate(vm, a):
 
 @type_error_decorator
 def prim_round(vm, a):
+    type_check(a, (int, float))
     return round(a)
 
 
 @type_error_decorator
 def prim_exp(vm, arg):
-    return math.exp(arg)
+    type_check(arg, (int, float, complex))
+    return cmath.exp(arg) if isinstance(arg, complex) else math.exp(arg)
 
 
 @type_error_decorator
 def prim_log(vm, arg):
-    return math.log(arg)
+    type_check(arg, (int, float, complex))
+    return cmath.log(arg) if isinstance(arg, complex) or arg < 0 else math.log(arg)
 
 
 @type_error_decorator
 def prim_sin(vm, arg):
-    return math.sin(arg)
+    type_check(arg, (int, float, complex))
+    return cmath.sin(arg) if isinstance(arg, complex) else math.sin(arg)
 
 
 @type_error_decorator
 def prim_cos(vm, arg):
-    return math.cos(arg)
+    type_check(arg, (int, float, complex))
+    return cmath.cos(arg) if isinstance(arg, complex) else math.cos(arg)
 
 
 @type_error_decorator
 def prim_tan(vm, arg):
-    return math.tan(arg)
+    type_check(arg, (int, float, complex))
+    return cmath.tan(arg) if isinstance(arg, complex) else math.tan(arg)
 
 
 @type_error_decorator
 def prim_asin(vm, arg):
+    type_check(arg, (int, float, complex))
+    if isinstance(arg, complex) or not -1 <= arg <= 1:
+        return cmath.asin(arg)
     return math.asin(arg)
 
 
 @type_error_decorator
 def prim_acos(vm, arg):
+    type_check(arg, (int, float, complex))
+    if isinstance(arg, complex) or not -1 <= arg <= 1:
+        return cmath.acos(arg)
     return math.acos(arg)
 
 
 @type_error_decorator
 def prim_atan(vm, arg, *arg2):
+    type_check(arg, (int, float, complex))
     if len(arg2) == 0:
-        return math.atan(arg)
+        return cmath.atan(arg) if isinstance(arg, complex) else math.atan(arg)
+    type_check_all((arg, arg2[0]), (int, float))
     return math.atan2(arg, arg2[0])
 
 
 @type_error_decorator
 def prim_sqrt(vm, arg):
+    type_check(arg, (int, float, complex))
+    if isinstance(arg, complex) or arg < 0:
+        return cmath.sqrt(arg)
     return math.sqrt(arg)
 
 
 @type_error_decorator
 def prim_expt(vm, a, b):
+    type_check_all((a, b), (int, float, complex))
     return a**b
+
+
+def prim_make_rectangular(vm, real, imag):
+    type_check_all((real, imag), (int, float))
+    return complex(real, imag)
+
+
+def prim_make_polar(vm, magnitude, angle):
+    type_check_all((magnitude, angle), (int, float))
+    return cmath.rect(magnitude, angle)
+
+
+def prim_real_part(vm, number):
+    type_check(number, (int, float, complex))
+    return number.real if isinstance(number, complex) else number
+
+
+def prim_imag_part(vm, number):
+    type_check(number, (int, float, complex))
+    return number.imag if isinstance(number, complex) else 0
+
+
+def prim_magnitude(vm, number):
+    type_check(number, (int, float, complex))
+    return abs(number)
+
+
+def prim_angle(vm, number):
+    type_check(number, (int, float, complex))
+    return cmath.phase(number)
 
 
 @type_error_decorator
 def prim_abs(vm, arg):
+    type_check(arg, (int, float, complex))
     return abs(arg)
 
 
@@ -552,7 +624,7 @@ def prim_set_rest_x(vm, arg, val):
 
 
 def prim_exact_p(vm, arg):
-    if isinstance(arg, int):
+    if matches_type(arg, int):
         return True
     # python complex are always inexact
     if isinstance(arg, (float, complex)):
@@ -725,6 +797,27 @@ def prim_map(vm, proc, *lists):
     for x in reversed(res):
         rest = pair(x, rest)
     return rest
+
+
+def prim_for_each(vm, proc, *lists):
+    lists = list(lists)
+    while True:
+        if any(lst is not None and not isinstance(lst, pair) for lst in lists):
+            raise WrongArgType("Arguments of for-each should be valid lists.")
+        ended = [lst is None for lst in lists]
+        if any(ended):
+            if not all(ended):
+                raise MiscError(
+                    "Lists supplied to for-each should be all of the same length."
+                )
+            return None
+        vm.apply(proc, [lst.first for lst in lists])
+        lists = [lst.rest for lst in lists]
+
+
+def prim_load(vm, filename):
+    type_check(filename, str)
+    return vm.load(filename)
 
 
 def prim_string_to_symbol(vm, name):
@@ -976,7 +1069,7 @@ def prim_eqv(vm, a, b):
 ########################################
 def make_type_predict(tt):
     def predict(vm, obj):
-        return isinstance(obj, tt)
+        return matches_type(obj, tt)
 
     return predict
 
@@ -1016,10 +1109,25 @@ def check_slice(start, end, length):
 
 
 def type_check(obj, t):
-    if not isinstance(obj, t):
+    if not matches_type(obj, t):
         raise WrongArgType(
             "Expecting type %s, but got %s (type %s)" % (t, obj, type(obj))
         )
+
+
+def type_check_all(objects, expected_type):
+    for obj in objects:
+        type_check(obj, expected_type)
+
+
+def matches_type(obj, expected_type):
+    if isinstance(obj, bool):
+        if expected_type is int:
+            return False
+        if isinstance(expected_type, tuple):
+            if int in expected_type and bool not in expected_type:
+                return False
+    return isinstance(obj, expected_type)
 
 
 def iter_list(lst, excp_t=WrongArgType):

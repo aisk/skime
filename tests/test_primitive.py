@@ -17,7 +17,9 @@ class TestArithmetic(HelperVM):
         assert self.eval("(- 3 2 1)") == 0
         assert self.eval("(- 2 1)") == 1
         assert self.eval("(- 2)") == -2
-        pytest.raises(WrongArgNumber, self.eval, "(-)")
+        with pytest.raises(WrongArgNumber) as error:
+            self.eval("(-)")
+        assert str(error.value) == "minus expects at least 1 arguments, but got 0"
 
         assert self.eval("(* -2 -3)") == 6
         assert self.eval("(* 2)") == 2
@@ -34,6 +36,7 @@ class TestArithmetic(HelperVM):
 class TestLogic(HelperVM):
     def test_logic(self):
         assert self.eval("(= 1 1)") == True
+        pytest.raises(WrongArgType, self.eval, '(= 1 1 "1")')
         assert self.eval("(not (= 1 1))") == False
 
         assert self.eval("(not #t)") == False

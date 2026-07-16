@@ -1,4 +1,5 @@
 import math
+from functools import wraps
 
 from .errors import MiscError, WrongArgNumber, WrongArgType
 from .proc import Procedure
@@ -44,13 +45,13 @@ class PyPrimitive(Primitive):
         min, max = self.arity
         if min > 0 and argc < min:
             raise WrongArgNumber(
-                "%s expects at least %d arguments, but got %d",
-                (self.proc.__name__, min, argc),
+                "%s expects at least %d arguments, but got %d"
+                % (self.proc.__name__, min, argc)
             )
         if max > 0 and argc > max:
             raise WrongArgNumber(
-                "%s expects at most %d arguments, but got %d",
-                (self.proc.__name__, max, argc),
+                "%s expects at most %d arguments, but got %d"
+                % (self.proc.__name__, max, argc)
             )
 
     def call(self, *args):
@@ -162,6 +163,7 @@ def load_primitives(env):
 def type_error_decorator(meth):
     "Decorate method to catch Python TypeError and raise skime WrongArgType"
 
+    @wraps(meth)
     def new_meth(*args):
         try:
             return meth(*args)
@@ -214,7 +216,7 @@ def equal(vm, *args):
     if a != b:
         return False
     for x in args[2:]:
-        type_check(a, (int, int, float, complex))
+        type_check(x, (int, int, float, complex))
         if x != a:
             return False
     return True

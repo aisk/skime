@@ -39,6 +39,28 @@ class TestSyntax(HelperVM):
         assert self.eval("((lambda (x . y) (first y)) 1 2 3)") == 2
         pytest.raises(SyntaxError, self.eval, "(lambda)")
 
+    def test_closures_from_the_same_lambda_have_independent_environments(self):
+        assert self.eval("""
+        (begin
+          (define (make-value value) (lambda () value))
+          (define first (make-value 1))
+          (define second (make-value 2))
+          (list (first) (second)))
+        """) == pair(1, pair(2, None))
+
+    def test_closures_keep_independent_mutable_state(self):
+        assert self.eval("""
+        (begin
+          (define (make-counter)
+            (let ((value 0))
+              (lambda ()
+                (set! value (+ value 1))
+                value)))
+          (define first (make-counter))
+          (define second (make-counter))
+          (list (first) (first) (second)))
+        """) == pair(1, pair(2, pair(1, None)))
+
     def test_call(self):
         assert self.eval("(- 5 4)") == 1
         assert self.eval("(pair 1 ((lambda () 2)))") == pair(1, 2)

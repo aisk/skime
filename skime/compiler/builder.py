@@ -4,7 +4,7 @@ from ..env import Environment
 from ..errors import UnboundVariable
 from ..form import Form
 from ..iset import INSN_MAP
-from ..proc import Procedure
+from ..proc import ProcedureTemplate
 
 
 class Builder(object):
@@ -109,7 +109,7 @@ class Builder(object):
         for x in args:
             env.alloc_local(x)
 
-        bdr = Builder(env, result_t=Procedure)
+        bdr = Builder(env, result_t=ProcedureTemplate)
         # Those properties are recorded in the builder and used
         # to construct the procedure later
         bdr.args = args

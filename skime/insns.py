@@ -4,7 +4,7 @@ from .call_cc import Continuation
 from .ctx import Context
 from .errors import WrongArgNumber, WrongArgType
 from .prim import Primitive
-from .proc import Procedure
+from .proc import Procedure, ProcedureTemplate
 from .types.pair import Pair
 
 TAG_CTRL_FLOW = 1
@@ -149,8 +149,12 @@ def op_goto_if_false(ctx):
 
 
 def op_fix_lexical(ctx):
-    proc = ctx.top()
-    proc.lexical_parent = ctx.env
+    value = ctx.pop()
+    if isinstance(value, ProcedureTemplate):
+        value = value.close(ctx.env)
+    else:
+        value.lexical_parent = ctx.env
+    ctx.push(value)
     ctx.ip += 1
 
 
@@ -162,12 +166,16 @@ def op_fix_lexical_pop(ctx):
 
 def op_fix_lexical_depth(ctx):
     depth = get_param(ctx, 1)
-    proc = ctx.top()
+    value = ctx.pop()
     env = ctx.env
     while depth > 0:
         env = env.parent
         depth -= 1
-    proc.lexical_parent = env
+    if isinstance(value, ProcedureTemplate):
+        value = value.close(env)
+    else:
+        value.lexical_parent = env
+    ctx.push(value)
     ctx.ip += 2
 
 

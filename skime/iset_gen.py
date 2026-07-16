@@ -102,10 +102,10 @@ TMPL_INSNS = """\
 
 from .ctx        import Context
 from .call_cc    import Continuation
-from .proc       import Procedure
+from .proc       import Procedure, ProcedureTemplate
 from .prim       import Primitive
 from .types.pair import Pair
-from .errors     import WrongArgType
+from .errors     import WrongArgNumber, WrongArgType
 
 $(tags)
 

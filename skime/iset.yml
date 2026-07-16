@@ -263,13 +263,17 @@ instructions:
   -
     name: fix_lexical
     tags: []
-    desc: Fix the lexical_parent of an object.
+    desc: Bind an object to the current lexical environment.
     operands: []
     stack_before: [obj]
     stack_after: [obj]
     code: |
-      proc = ctx.top()
-      proc.lexical_parent = ctx.env
+      value = ctx.pop()
+      if isinstance(value, ProcedureTemplate):
+          value = value.close(ctx.env)
+      else:
+          value.lexical_parent = ctx.env
+      ctx.push(value)
 
   -
     name: fix_lexical_pop
@@ -285,18 +289,22 @@ instructions:
   -
     name: fix_lexical_depth
     tags: []
-    desc: Fix the lexical_parent of an object.
+    desc: Bind an object to a lexical ancestor.
     operands: [depth]
     stack_before: [obj]
     stack_after: [obj]
     code: |
       depth = get_param(ctx, 1)
-      proc = ctx.top()
+      value = ctx.pop()
       env = ctx.env
       while depth > 0:
           env = env.parent
           depth -= 1
-      proc.lexical_parent = env
+      if isinstance(value, ProcedureTemplate):
+          value = value.close(env)
+      else:
+          value.lexical_parent = env
+      ctx.push(value)
 
   -
     name: dynamic_eval

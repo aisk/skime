@@ -4,37 +4,38 @@ from .compiler.disasm import disasm
 from .errors import WrongArgNumber
 
 
-class Procedure(object):
+class ProcedureTemplate(object):
+    """Compiled procedure code that can create independent closures."""
+
     def __init__(self, builder, bytecode):
-
-        # The Environment created at compile time. A new
-        # Environment will be created when the procedure
-        # is called.
-        #
-        # self.env.parent (i.e. the lexical parent of the
-        # env) might be an Environment created at compile
-        # time. In that case, a 'make-lambda' instruction
-        # will be emitted in the instruction sequence to
-        # fix the parent at run time.
+        # This environment describes the procedure's local slots. It belongs
+        # to the template and must never be rebound to a runtime environment.
         self.env = builder.env
-
         self.bytecode = bytecode
-
         self.argc = len(builder.args)
         if builder.rest_arg:
             self.fixed_argc = self.argc - 1
         else:
             self.fixed_argc = self.argc
-
         self.literals = list(builder.literals)
 
-    def lexical_parent_get(self):
-        return self.env.parent
+    def close(self, lexical_parent):
+        "Create a runtime closure over lexical_parent."
+        env = self.env.dup()
+        env.parent = lexical_parent
+        return Procedure(self, env)
 
-    def lexical_parent_set(self, parent):
-        self.env.parent = parent
 
-    lexical_parent = property(lexical_parent_get, lexical_parent_set)
+class Procedure(object):
+    """A runtime closure created from a compiled procedure template."""
+
+    def __init__(self, template, env):
+        self.template = template
+        self.env = env
+        self.bytecode = template.bytecode
+        self.argc = template.argc
+        self.fixed_argc = template.fixed_argc
+        self.literals = template.literals
 
     def check_arity(self, argc):
         if self.fixed_argc == self.argc:

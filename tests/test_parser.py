@@ -3,6 +3,7 @@ import pytest
 
 from skime.compiler.parser import parse as p
 from skime.errors import ParseError
+from skime.types.character import Character
 from skime.types.pair import Pair as pair
 from skime.types.symbol import Symbol as sym
 from skime.types.vector import Vector
@@ -74,6 +75,18 @@ class TestVector(object):
 
     def test_invalid_vector(self):
         pytest.raises(ParseError, p, "#(1 . 2)")
+
+
+class TestCharacter(object):
+    def test_character(self):
+        assert p("#\\a") == Character("a")
+        assert p("#\\space") == Character(" ")
+        assert p("#\\newline") == Character("\n")
+        assert p("#\\)") == Character(")")
+
+    def test_invalid_character(self):
+        pytest.raises(ParseError, p, "#\\")
+        pytest.raises(ParseError, p, "#\\unknown")
 
 
 class TestPair(object):

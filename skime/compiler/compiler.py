@@ -1,6 +1,7 @@
 from ..errors import CompileError, SyntaxError
 from ..form import Form
 from ..macro import DynamicClosure, Macro, SymbolClosure
+from ..types.character import Character
 from ..types.pair import Pair as pair
 from ..types.symbol import Symbol as sym
 from ..types.vector import Vector
@@ -72,7 +73,18 @@ class Compiler(object):
         return None
 
     def self_evaluating(self, expr):
-        for t in [int, int, complex, float, str, str, bool, type(None), Vector]:
+        for t in [
+            int,
+            int,
+            complex,
+            float,
+            str,
+            str,
+            bool,
+            type(None),
+            Character,
+            Vector,
+        ]:
             if isinstance(expr, t):
                 return True
         return False

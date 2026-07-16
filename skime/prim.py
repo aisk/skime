@@ -4,6 +4,7 @@ from itertools import product
 
 from .errors import MiscError, WrongArgNumber, WrongArgType
 from .proc import Procedure
+from .types.character import Character
 from .types.pair import Pair as pair
 from .types.symbol import Symbol as sym
 from .types.vector import Vector
@@ -133,6 +134,7 @@ def load_primitives(env):
         (pair, "pair?"),
         (sym, "symbol?"),
         (str, "string?"),
+        (Character, "char?"),
         (Vector, "vector?"),
         ((int, int, float, complex), "number?"),
         ((int, int, float), "rational?"),
@@ -177,6 +179,62 @@ def load_primitives(env):
     env.alloc_local("number->string", PyPrimitive(prim_number_to_string, (1, 2)))
     env.alloc_local("string->number", PyPrimitive(prim_string_to_number, (1, 2)))
     env.alloc_local("string-append", PyPrimitive(prim_string_append, (-1, -1)))
+    env.alloc_local("make-string", PyPrimitive(prim_make_string, (1, 2)))
+    env.alloc_local("string", PyPrimitive(prim_string, (-1, -1)))
+    env.alloc_local("string-length", PyPrimitive(prim_string_length, (1, 1)))
+    env.alloc_local("string-ref", PyPrimitive(prim_string_ref, (2, 2)))
+    env.alloc_local("substring", PyPrimitive(prim_substring, (3, 3)))
+    env.alloc_local("string-copy", PyPrimitive(prim_string_copy, (1, 1)))
+    env.alloc_local("string->list", PyPrimitive(prim_string_to_list, (1, 1)))
+    env.alloc_local("list->string", PyPrimitive(prim_list_to_string, (1, 1)))
+
+    for name, relation, case_insensitive in [
+        ("string=?", "eq", False),
+        ("string<?", "lt", False),
+        ("string>?", "gt", False),
+        ("string<=?", "le", False),
+        ("string>=?", "ge", False),
+        ("string-ci=?", "eq", True),
+        ("string-ci<?", "lt", True),
+        ("string-ci>?", "gt", True),
+        ("string-ci<=?", "le", True),
+        ("string-ci>=?", "ge", True),
+    ]:
+        env.alloc_local(
+            name,
+            PyPrimitive(
+                make_string_comparison(name, relation, case_insensitive), (2, -1)
+            ),
+        )
+
+    for name, relation, case_insensitive in [
+        ("char=?", "eq", False),
+        ("char<?", "lt", False),
+        ("char>?", "gt", False),
+        ("char<=?", "le", False),
+        ("char>=?", "ge", False),
+        ("char-ci=?", "eq", True),
+        ("char-ci<?", "lt", True),
+        ("char-ci>?", "gt", True),
+        ("char-ci<=?", "le", True),
+        ("char-ci>=?", "ge", True),
+    ]:
+        env.alloc_local(
+            name,
+            PyPrimitive(
+                make_char_comparison(name, relation, case_insensitive), (2, -1)
+            ),
+        )
+
+    env.alloc_local("char-alphabetic?", PyPrimitive(prim_char_alphabetic_p, (1, 1)))
+    env.alloc_local("char-numeric?", PyPrimitive(prim_char_numeric_p, (1, 1)))
+    env.alloc_local("char-whitespace?", PyPrimitive(prim_char_whitespace_p, (1, 1)))
+    env.alloc_local("char-upper-case?", PyPrimitive(prim_char_upper_case_p, (1, 1)))
+    env.alloc_local("char-lower-case?", PyPrimitive(prim_char_lower_case_p, (1, 1)))
+    env.alloc_local("char->integer", PyPrimitive(prim_char_to_integer, (1, 1)))
+    env.alloc_local("integer->char", PyPrimitive(prim_integer_to_char, (1, 1)))
+    env.alloc_local("char-upcase", PyPrimitive(prim_char_upcase, (1, 1)))
+    env.alloc_local("char-downcase", PyPrimitive(prim_char_downcase, (1, 1)))
     env.alloc_local("make-vector", PyPrimitive(prim_make_vector, (1, 2)))
     env.alloc_local("vector", PyPrimitive(prim_vector, (-1, -1)))
     env.alloc_local("vector-length", PyPrimitive(prim_vector_length, (1, 1)))
@@ -726,6 +784,138 @@ def prim_string_append(vm, *strings):
     return "".join(strings)
 
 
+def prim_make_string(vm, size, *fill):
+    check_size(size)
+    character = fill[0] if fill else Character("\x00")
+    type_check(character, Character)
+    return character.value * size
+
+
+def prim_string(vm, *characters):
+    for character in characters:
+        type_check(character, Character)
+    return "".join(character.value for character in characters)
+
+
+def prim_string_length(vm, string):
+    type_check(string, str)
+    return len(string)
+
+
+def prim_string_ref(vm, string, index):
+    type_check(string, str)
+    check_index(index, len(string))
+    return Character(string[index])
+
+
+def prim_substring(vm, string, start, end):
+    type_check(string, str)
+    check_slice(start, end, len(string))
+    return string[start:end]
+
+
+def prim_string_copy(vm, string):
+    type_check(string, str)
+    return string[:]
+
+
+def prim_string_to_list(vm, string):
+    type_check(string, str)
+    return prim_list(vm, *(Character(value) for value in string))
+
+
+def prim_list_to_string(vm, characters):
+    values = list(iter_list(characters))
+    for character in values:
+        type_check(character, Character)
+    return "".join(character.value for character in values)
+
+
+def make_string_comparison(name, relation, case_insensitive):
+    def comparison(vm, *strings):
+        for string in strings:
+            type_check(string, str)
+        key = str.casefold if case_insensitive else lambda value: value
+        return compare_chain([key(string) for string in strings], relation)
+
+    comparison.__name__ = name
+    return comparison
+
+
+def make_char_comparison(name, relation, case_insensitive):
+    def comparison(vm, *characters):
+        for character in characters:
+            type_check(character, Character)
+        values = [character.value for character in characters]
+        if case_insensitive:
+            values = [value.casefold() for value in values]
+        return compare_chain(values, relation)
+
+    comparison.__name__ = name
+    return comparison
+
+
+def compare_chain(values, relation):
+    operators = {
+        "eq": lambda a, b: a == b,
+        "lt": lambda a, b: a < b,
+        "gt": lambda a, b: a > b,
+        "le": lambda a, b: a <= b,
+        "ge": lambda a, b: a >= b,
+    }
+    predicate = operators[relation]
+    return all(predicate(a, b) for a, b in zip(values, values[1:]))
+
+
+def character_value(character):
+    type_check(character, Character)
+    return character.value
+
+
+def prim_char_alphabetic_p(vm, character):
+    return character_value(character).isalpha()
+
+
+def prim_char_numeric_p(vm, character):
+    return character_value(character).isdigit()
+
+
+def prim_char_whitespace_p(vm, character):
+    return character_value(character).isspace()
+
+
+def prim_char_upper_case_p(vm, character):
+    return character_value(character).isupper()
+
+
+def prim_char_lower_case_p(vm, character):
+    return character_value(character).islower()
+
+
+def prim_char_to_integer(vm, character):
+    return ord(character_value(character))
+
+
+def prim_integer_to_char(vm, value):
+    type_check(value, int)
+    if isinstance(value, bool):
+        raise WrongArgType("Expected an exact integer")
+    try:
+        return Character(chr(value))
+    except ValueError as error:
+        raise WrongArgType(str(error))
+
+
+def prim_char_upcase(vm, character):
+    value = character_value(character).upper()
+    return Character(value if len(value) == 1 else character.value)
+
+
+def prim_char_downcase(vm, character):
+    value = character_value(character).lower()
+    return Character(value if len(value) == 1 else character.value)
+
+
 def prim_make_vector(vm, size, *fill):
     check_size(size)
     value = fill[0] if fill else None
@@ -816,6 +1006,13 @@ def check_index(index, length):
     check_size(index)
     if index >= length:
         raise WrongArgType("Index %d is out of bounds" % index)
+
+
+def check_slice(start, end, length):
+    check_size(start)
+    check_size(end)
+    if start > end or end > length:
+        raise WrongArgType("Invalid string slice %d:%d" % (start, end))
 
 
 def type_check(obj, t):

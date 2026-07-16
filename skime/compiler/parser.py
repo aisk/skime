@@ -1,4 +1,5 @@
 from ..errors import ParseError
+from ..types.character import Character
 from ..types.pair import Pair as pair
 from ..types.symbol import Symbol as sym
 from ..types.vector import Vector
@@ -41,6 +42,8 @@ class Parser(object):
                 return False
             if self.peak(idx=1) == "(":
                 return self.parse_vector()
+            if self.peak(idx=1) == "\\":
+                return self.parse_character()
 
         def parse_number_or_symbol():
             if self.isdigit(self.peak(idx=1)):
@@ -205,6 +208,27 @@ class Parser(object):
         if values is not None:
             self.report_error("Vector literals cannot contain a dotted tail")
         return Vector(elements)
+
+    def parse_character(self):
+        self.pop(n=2)
+        if not self.more():
+            self.report_error("Expected a character after '#\\'")
+
+        first = self.peak()
+        if not first.isalpha():
+            self.pop()
+            return Character(first)
+
+        start = self.pos
+        while self.more() and not self.isspace(self.peak()) and self.peak() not in "()":
+            self.pop()
+        name = self.text[start : self.pos]
+        named = {"space": " ", "newline": "\n"}
+        if len(name) == 1:
+            return Character(name)
+        if name in named:
+            return Character(named[name])
+        self.report_error("Unknown character name '%s'" % name)
 
     def skip_all(self):
         "Skip all non-relevant characters."

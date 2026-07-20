@@ -144,6 +144,8 @@ class Compiler(object):
             Compiler.sym_set_x: self.generate_set_x,
             Compiler.sym_quote: self.generate_quote,
             Compiler.sym_quasiquote: self.generate_quasiquote,
+            Compiler.sym_unquote: self.generate_unquote,
+            Compiler.sym_unquote_splicing: self.generate_unquote_splicing,
             Compiler.sym_or: self.generate_or,
             Compiler.sym_and: self.generate_and,
             Compiler.sym_define_syntax: self.generate_define_syntax,
@@ -292,6 +294,14 @@ class Compiler(object):
             return expr
         raise SyntaxError("Expecting symbol, but got %s" % expr)
 
+    def ensure_distinct_names(self, names, context):
+        """Reject duplicate bindings before they reach the runtime environment."""
+        seen = set()
+        for name in names:
+            if name in seen:
+                raise SyntaxError("Duplicated %s: %s" % (context, name))
+            seen.add(name)
+
     def generate_lambda(self, base_builder, expr, keep=True, tail=False):
         if keep is not True:
             return  # lambda expression has no side-effect
@@ -315,6 +325,8 @@ class Compiler(object):
             else:
                 rest_arg = True
                 args = [self.filter_sc(arglst).name]
+
+            self.ensure_distinct_names(args, "lambda argument")
 
             bdr = base_builder.push_proc(args=args, rest_arg=rest_arg)
             self.generate_body(bdr, body, keep=True, tail=True)
@@ -361,6 +373,8 @@ class Compiler(object):
                 "Invalid let expression: expecting bindings, but got %s" % bindings
             )
 
+        self.ensure_distinct_names(param, "let binding")
+
         for x in args:
             self.generate_expr(bdr, x, keep=True, tail=False)
 
@@ -400,6 +414,8 @@ class Compiler(object):
             bindings = bindings.rest
         if bindings is not None:
             raise SyntaxError("Invalid bindings for named let")
+
+        self.ensure_distinct_names([name.name for name in names], "named let binding")
 
         lambda_expr = pair(
             Compiler.sym_lambda,
@@ -446,6 +462,8 @@ class Compiler(object):
 
         if bindings is not None:
             raise SyntaxError("Invalid bindings for letrec expression: %s" % bindings)
+
+        self.ensure_distinct_names(names, "letrec binding")
 
         for i in range(len(names)):
             self.generate_expr(lambda_bdr, vals[i], keep=True, tail=False)
@@ -558,17 +576,18 @@ class Compiler(object):
             raise SyntaxError("Extra expressions in 'set!'")
         val = val.first
 
+        if not isinstance(var, (sym, SymbolClosure)):
+            raise SyntaxError("Invalid set! expression, expecting symbol")
+
         self.generate_expr(bdr, val, keep=True, tail=False)
         if keep:
             bdr.emit("dup")
 
         if isinstance(var, sym):
             bdr.emit_local("set", var.name)
-        elif isinstance(var, SymbolClosure):
+        else:
             bdr.emit("push_literal", var)
             bdr.emit_local("set", var.expression.name, var.lexical_parent)
-        else:
-            raise SyntaxError("Invalid set! expression, expecting symbol")
 
         if tail:
             bdr.emit("ret")
@@ -589,6 +608,12 @@ class Compiler(object):
             raise SyntaxError("quasiquote expects exactly one expression")
         expanded = self.expand_quasiquote(expr.first)
         self.generate_expr(bdr, expanded, keep=keep, tail=tail)
+
+    def generate_unquote(self, bdr, expr, keep=True, tail=False):
+        raise SyntaxError("unquote is only valid within quasiquote")
+
+    def generate_unquote_splicing(self, bdr, expr, keep=True, tail=False):
+        raise SyntaxError("unquote-splicing is only valid within quasiquote")
 
     def expand_quasiquote(self, expr, depth=1):
         if isinstance(expr, Vector):
@@ -726,7 +751,8 @@ class Compiler(object):
             or not isinstance(expr.first, pair)
             or Compiler.sym_syntax_rules != expr.first.first
         ):
-            raise SyntaxError("Expecting syntax-rules, but got %s" % expr.first)
+            got = expr.first if isinstance(expr, pair) else expr
+            raise SyntaxError("Expecting syntax-rules, but got %s" % got)
         if expr.rest is not None:
             raise SyntaxError("Extra expressions in define-syntax: %s" % expr.rest)
 
@@ -787,6 +813,8 @@ class Compiler(object):
             init_spec = init_spec.rest
         if init_spec is not None:
             raise SyntaxError("Invalid init specs for do expression")
+
+        self.ensure_distinct_names(variables, "do binding")
 
         for val in init_vals:
             self.generate_expr(bdr, val, keep=True, tail=False)

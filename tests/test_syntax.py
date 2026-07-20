@@ -3,6 +3,7 @@ from helper import HelperVM
 
 from skime.errors import SyntaxError, UnboundVariable
 from skime.types.pair import Pair as pair
+from skime.vm import VM
 
 
 class TestSyntax(HelperVM):
@@ -59,6 +60,8 @@ class TestSyntax(HelperVM):
         assert self.eval("((lambda (x . y) y) 1)") == None
         assert self.eval("((lambda (x . y) (first y)) 1 2 3)") == 2
         pytest.raises(SyntaxError, self.eval, "(lambda)")
+        pytest.raises(SyntaxError, self.eval, "(lambda (x x) x)")
+        pytest.raises(SyntaxError, self.eval, "(lambda (x . x) x)")
 
     def test_closures_from_the_same_lambda_have_independent_environments(self):
         assert self.eval("""
@@ -120,6 +123,10 @@ class TestSyntax(HelperVM):
           (pair foo bar))""") == pair(6, 5)
         assert self.eval("(set! pair 10)") == 10
         pytest.raises(UnboundVariable, self.eval, "(set! var-not-exist 10)")
+        vm = VM()
+        vm.eval_string("(define value 0)")
+        pytest.raises(SyntaxError, vm.eval_string, "(set! 1 (set! value 1))")
+        assert vm.eval_string("value") == 0
 
     def test_let(self):
         assert self.eval("""
@@ -136,6 +143,7 @@ class TestSyntax(HelperVM):
         assert self.eval("(let () #t)") == True
         assert self.eval("(let ())") == None
         pytest.raises(SyntaxError, self.eval, "(let ((a 1 2)) a)")
+        pytest.raises(SyntaxError, self.eval, "(let ((a 1) (a 2)) a)")
 
     def test_named_let(self):
         assert self.eval("""
@@ -144,6 +152,7 @@ class TestSyntax(HelperVM):
                   sum
                   (loop (cdr numbers) (+ sum (car numbers)))))
         """) == 10
+        pytest.raises(SyntaxError, self.eval, "(let loop ((a 1) (a 2)) a)")
 
     def test_quote(self):
         pytest.raises(SyntaxError, self.eval, "(quote)")
@@ -158,11 +167,20 @@ class TestSyntax(HelperVM):
         )
         pytest.raises(SyntaxError, self.eval, "(quasiquote)")
         pytest.raises(SyntaxError, self.eval, "`,@'(a b)")
+        pytest.raises(SyntaxError, self.eval, ",value")
+        pytest.raises(SyntaxError, self.eval, ",@value")
 
     def test_do(self):
         assert self.eval("""
         (do ((a 6 b) (b 9 (remainder a b)))
             ((= b 0) a))""") == 3
+        pytest.raises(SyntaxError, self.eval, "(do ((a 1) (a 2)) (#t))")
+
+    def test_letrec_duplicate_binding(self):
+        pytest.raises(SyntaxError, self.eval, "(letrec ((a 1) (a 2)) a)")
+
+    def test_define_syntax_requires_transformer(self):
+        pytest.raises(SyntaxError, self.eval, "(define-syntax name)")
 
     def test_cond(self):
         assert self.eval("""

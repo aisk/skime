@@ -66,6 +66,14 @@ class Parser(object):
         if not self.more():
             raise ParseError("Nothing to be parsed.")
         ch = self.peak()
+        if ch == ")":
+            self.report_error("Unexpected right paren ')'")
+        if ch == "." and (
+            self.peak(idx=1) is None
+            or self.isspace(self.peak(idx=1))
+            or self.peak(idx=1) in ["'", ")", "(", ","]
+        ):
+            self.report_error("Dot can only appear inside a list")
         routine = mapping.get(ch)
 
         if routine is not None:

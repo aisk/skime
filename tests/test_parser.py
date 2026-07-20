@@ -104,6 +104,8 @@ class TestPair(object):
         pytest.raises(ParseError, p, "(1 . 2 3)")
         pytest.raises(ParseError, p, "(1))")
         pytest.raises(ParseError, p, "(. 1)")
+        pytest.raises(ParseError, p, ")")
+        pytest.raises(ParseError, p, ".")
 
 
 class TestQuote(object):

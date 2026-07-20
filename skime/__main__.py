@@ -1,4 +1,10 @@
-import readline
+try:
+    # `readline` is not part of the standard library on Windows.  Import it
+    # when available so POSIX users keep line editing/history support, but do
+    # not prevent the REPL from starting elsewhere.
+    import readline  # noqa: F401
+except ImportError:
+    pass
 
 from skime.compiler.compiler import Compiler
 from skime.compiler.parser import parse

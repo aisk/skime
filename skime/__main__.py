@@ -11,7 +11,11 @@ def main():
     compiler = Compiler()
     vm = VM()
     while True:
-        code = input("-> ")
+        try:
+            code = input("-> ")
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return
         try:
             proc = compiler.compile(parse(code), vm.env)
             print("=>", vm.run(proc))

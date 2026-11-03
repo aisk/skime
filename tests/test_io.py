@@ -24,5 +24,9 @@ class TestIO(HelperVM):
               (write-char #\\!))
             """)
 
-        assert capsys.readouterr().out == 'hello (1 "two")\n"quoted"!'
+        assert capsys.readouterr().out == 'hello (1 two)\n"quoted"!'
+
+    def test_circular_structures_are_printed(self, capsys):
+        self.eval("(let ((x (list 1 2))) (set-cdr! (cdr x) x) (write x))")
+        assert capsys.readouterr().out == "(1 2 . ...)"
         pytest.raises(WrongArgType, self.eval, "(write-char 1)")

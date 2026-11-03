@@ -1,11 +1,14 @@
 import cmath
 import math
+import re
 import sys
 from functools import wraps
 from itertools import product
 
 from .call_cc import Continuation
+from .compiler.number import parse_number_text
 from .errors import MiscError, WrongArgNumber, WrongArgType
+from .printer import scheme_display, scheme_write
 from .proc import Procedure
 from .types.character import Character
 from .types.pair import Pair as pair
@@ -61,10 +64,26 @@ class PyPrimitive(Primitive):
             )
 
     def call(self, *args):
-        return self.proc(*args)
+        return call_python(self.proc, args)
 
     def __str__(self):
         return "<skime primitive => %s>" % self.proc.__name__
+
+
+class ApplyPrimitive(PyPrimitive):
+    """\
+    The apply primitive. The VM expands it in place so that the target
+    procedure is invoked through the regular calling convention, which keeps
+    apply in tail position a proper tail call.
+    """
+
+    def __init__(self):
+        PyPrimitive.__init__(self, prim_apply, (1, -1))
+
+    def spread(self, args):
+        "Return the procedure and the argument list described by args."
+        self.check_arity(len(args))
+        return args[0], spread_apply_args(args[1:])
 
 
 class PyCallable(Primitive):
@@ -75,7 +94,23 @@ class PyCallable(Primitive):
         return True
 
     def call(self, vm, *args):
-        return self.proc(*args)
+        return call_python(self.proc, args)
+
+
+def call_python(proc, args):
+    "Call a Python function and turn Python runtime errors into skime errors."
+    try:
+        return proc(*args)
+    except ZeroDivisionError:
+        raise MiscError("Division by zero")
+    except (ArithmeticError, ValueError) as error:
+        raise MiscError(str(error))
+    except OSError as error:
+        raise MiscError(
+            "%s: %s" % (error.strerror or error, error.filename)
+            if error.filename
+            else str(error)
+        )
 
 
 def load_primitives(env):
@@ -140,13 +175,13 @@ def load_primitives(env):
         (Character, "char?"),
         (Vector, "vector?"),
         ((int, int, float, complex), "number?"),
-        ((int, int, float), "rational?"),
-        ((int, int, float), "real?"),
         ((int, int, float, complex), "complex?"),
-        ((int, int), "integer?"),
         ((Procedure, Primitive, Continuation), "procedure?"),
     ]:
         env.alloc_local(name, PyPrimitive(make_type_predict(t), (1, 1)))
+    env.alloc_local("real?", PyPrimitive(prim_real_p, (1, 1)))
+    env.alloc_local("rational?", PyPrimitive(prim_rational_p, (1, 1)))
+    env.alloc_local("integer?", PyPrimitive(prim_integer_p, (1, 1)))
 
     env.alloc_local("exact?", PyPrimitive(prim_exact_p, (1, 1)))
     env.alloc_local("inexact?", PyPrimitive(prim_inexact_p, (1, 1)))
@@ -180,9 +215,10 @@ def load_primitives(env):
     env.alloc_local("null?", PyPrimitive(prim_null_p, (1, 1)))
     env.alloc_local("list?", PyPrimitive(prim_list_p, (1, 1)))
 
-    env.alloc_local("apply", PyPrimitive(prim_apply, (1, -1)))
-    env.alloc_local("map", PyPrimitive(prim_map, (2, -1)))
-    env.alloc_local("for-each", PyPrimitive(prim_for_each, (2, -1)))
+    env.alloc_local("apply", ApplyPrimitive())
+    env.alloc_local("%lists-done?", PyPrimitive(prim_lists_done_p, (2, 2)))
+    env.alloc_local("%cars", PyPrimitive(prim_cars, (1, 1)))
+    env.alloc_local("%cdrs", PyPrimitive(prim_cdrs, (1, 1)))
     env.alloc_local("load", PyPrimitive(prim_load, (1, 1)))
     env.alloc_local("display", PyPrimitive(prim_display, (1, 1)))
     env.alloc_local("write", PyPrimitive(prim_write, (1, 1)))
@@ -684,6 +720,8 @@ def prim_list(vm, *args):
 
 
 def prim_length(vm, lst):
+    if not prim_list_p(vm, lst):
+        raise WrongArgType("Not a proper list")
     return sum(1 for _ in iter_list(lst))
 
 
@@ -768,8 +806,12 @@ def prim_assoc(vm, obj, alist):
 
 
 def prim_apply(vm, proc, *args):
+    return vm.apply(proc, spread_apply_args(args))
+
+
+def spread_apply_args(args):
     if len(args) == 0:
-        return vm.apply(proc, args)
+        return []
     argv = list(args[:-1])
     arglst = args[-1]
     while isinstance(arglst, pair):
@@ -777,47 +819,37 @@ def prim_apply(vm, proc, *args):
         arglst = arglst.rest
     if arglst is not None:
         raise WrongArgType(
-            "The last argument of apply should be a valid list, but got %s" % args[-1]
+            "The last argument of apply should be a valid list, but got %s"
+            % scheme_write(args[-1])
         )
-    return vm.apply(proc, argv)
+    return argv
 
 
-def prim_map(vm, proc, *lists):
-    res = []
-    lists = list(lists)
-    while True:
-        if any(lst is not None and not isinstance(lst, pair) for lst in lists):
-            raise WrongArgType("Arguments of map should be valid lists.")
-        ended = [lst is None for lst in lists]
-        if any(ended):
-            if not all(ended):
-                raise MiscError(
-                    "Lists supplied to map should be all of the same length."
-                )
-            break
-        args = [lst.first for lst in lists]
-        lists = [lst.rest for lst in lists]
-        res.append(vm.apply(proc, args))
-    rest = None
-    for x in reversed(res):
-        rest = pair(x, rest)
-    return rest
+# Helpers for map and for-each, which are defined in scheme/prim.scm so that
+# the callbacks run on the VM instead of recursing into Python.
+def prim_lists_done_p(vm, lists, name):
+    ended = False
+    remaining = False
+    while isinstance(lists, pair):
+        lst = lists.first
+        if lst is None:
+            ended = True
+        elif isinstance(lst, pair):
+            remaining = True
+        else:
+            raise WrongArgType("Arguments of %s should be valid lists." % name)
+        lists = lists.rest
+    if ended and remaining:
+        raise MiscError("Lists supplied to %s should be all of the same length." % name)
+    return ended
 
 
-def prim_for_each(vm, proc, *lists):
-    lists = list(lists)
-    while True:
-        if any(lst is not None and not isinstance(lst, pair) for lst in lists):
-            raise WrongArgType("Arguments of for-each should be valid lists.")
-        ended = [lst is None for lst in lists]
-        if any(ended):
-            if not all(ended):
-                raise MiscError(
-                    "Lists supplied to for-each should be all of the same length."
-                )
-            return None
-        vm.apply(proc, [lst.first for lst in lists])
-        lists = [lst.rest for lst in lists]
+def prim_cars(vm, lists):
+    return prim_list(vm, *[lst.first for lst in iter_list(lists)])
+
+
+def prim_cdrs(vm, lists):
+    return prim_list(vm, *[lst.rest for lst in iter_list(lists)])
 
 
 def prim_load(vm, filename):
@@ -826,13 +858,7 @@ def prim_load(vm, filename):
 
 
 def prim_display(vm, obj):
-    if isinstance(obj, str):
-        content = obj
-    elif isinstance(obj, Character):
-        content = obj.value
-    else:
-        content = scheme_write(obj)
-    sys.stdout.write(content)
+    sys.stdout.write(scheme_display(obj))
 
 
 def prim_write(vm, obj):
@@ -846,43 +872,6 @@ def prim_write_char(vm, character):
 
 def prim_newline(vm):
     sys.stdout.write("\n")
-
-
-def scheme_write(obj):
-    if obj is True:
-        return "#t"
-    if obj is False:
-        return "#f"
-    if obj is None:
-        return "()"
-    if isinstance(obj, Character):
-        return str(obj)
-    if isinstance(obj, str):
-        escaped = (
-            obj.replace("\\", "\\\\")
-            .replace('"', '\\"')
-            .replace("\n", "\\n")
-            .replace("\t", "\\t")
-        )
-        return '"%s"' % escaped
-    if isinstance(obj, pair):
-        return write_pair(obj)
-    if isinstance(obj, Vector):
-        return "#(" + " ".join(scheme_write(value) for value in obj.elements) + ")"
-    if isinstance(obj, complex):
-        sign = "+" if obj.imag >= 0 else "-"
-        return "%s%s%si" % (obj.real, sign, abs(obj.imag))
-    return str(obj)
-
-
-def write_pair(value):
-    elements = []
-    while isinstance(value, pair):
-        elements.append(scheme_write(value.first))
-        value = value.rest
-    if value is not None:
-        elements.extend([".", scheme_write(value)])
-    return "(" + " ".join(elements) + ")"
 
 
 def prim_string_to_symbol(vm, name):
@@ -924,21 +913,19 @@ def prim_number_to_string(vm, num, radix=10):
 
 def prim_string_to_number(vm, s, radix=10):
     type_check(s, str)
-    if not s:
+    if radix == 10:
+        try:
+            return parse_number_text(s)
+        except ValueError:
+            return False
+    if radix not in (2, 8, 16):
+        raise MiscError("Radix should be one of 2, 8, 10, or 16")
+    if not re.fullmatch(r"[+-]?[0-9a-fA-F]+", s):
         return False
     try:
         return int(s, radix)
     except ValueError:
-        if radix != 10:
-            raise MiscError("Only radix 10 is permitted for decimal number")
-        try:
-            if s.endswith("i"):
-                # complex number
-                return complex(s[:-1] + "j")
-            else:
-                return float(s)
-        except ValueError:
-            return False
+        return False
 
 
 @type_error_decorator
@@ -1120,7 +1107,27 @@ def prim_vector_fill_x(vm, vector, fill):
 
 
 def prim_equal(vm, a, b):
-    return a == b
+    # Compare iteratively so that long or deeply nested structures do not
+    # exhaust the Python stack.
+    stack = [(a, b)]
+    while stack:
+        a, b = stack.pop()
+        if isinstance(a, pair) and isinstance(b, pair):
+            stack.append((a.rest, b.rest))
+            stack.append((a.first, b.first))
+        elif isinstance(a, Vector) and isinstance(b, Vector):
+            if len(a.elements) != len(b.elements):
+                return False
+            stack.extend(zip(a.elements, b.elements))
+        elif isinstance(a, str) and isinstance(b, str):
+            if a != b:
+                return False
+        elif isinstance(a, Character) and isinstance(b, Character):
+            if a.value != b.value:
+                return False
+        elif not prim_eqv(vm, a, b):
+            return False
+    return True
 
 
 def prim_eq(vm, a, b):
@@ -1156,6 +1163,35 @@ def make_cxr(operations):
 
 def is_number(obj):
     return not isinstance(obj, bool) and isinstance(obj, (int, float, complex))
+
+
+def real_value(obj):
+    "Return obj as a real number, or None if it is not a real number."
+    if not is_number(obj):
+        return None
+    if isinstance(obj, complex):
+        if obj.imag != 0:
+            return None
+        return obj.real
+    return obj
+
+
+def prim_real_p(vm, obj):
+    return real_value(obj) is not None
+
+
+def prim_rational_p(vm, obj):
+    value = real_value(obj)
+    return value is not None and math.isfinite(value)
+
+
+def prim_integer_p(vm, obj):
+    value = real_value(obj)
+    if value is None:
+        return False
+    if isinstance(value, int):
+        return True
+    return math.isfinite(value) and value.is_integer()
 
 
 def check_size(size):

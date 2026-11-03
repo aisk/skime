@@ -45,4 +45,24 @@ def test_repl_reports_errors_and_continues(monkeypatch, capsys):
     assert lines[1].startswith("!> ")
     assert lines[2] == "!> Unbound variable ²"
     assert lines[4] == "=> 0"
-    assert lines[7] == "=> True"
+    assert lines[7] == "=> #t"
+
+
+def test_repl_prints_scheme_values_and_survives_runtime_errors(monkeypatch, capsys):
+    inputs = iter(["'()", '(list #t "a" #\\b)', "(/ 1 0)", '(load "/no/such/file")'])
+
+    def fake_input(_prompt):
+        try:
+            return next(inputs)
+        except StopIteration:
+            raise EOFError
+
+    monkeypatch.setattr(builtins, "input", fake_input)
+
+    main()
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[1] == "=> ()"
+    assert lines[2] == '=> (#t "a" #\\b)'
+    assert lines[3] == "!> Division by zero"
+    assert lines[4].startswith("!> No such file or directory")

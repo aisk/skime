@@ -66,6 +66,21 @@ class TestNumericTypes(HelperVM):
         assert self.eval("(integer? 2)") is True
         assert self.eval("(exact? 2)") is True
         assert self.eval("(inexact? 2.0)") is True
+        assert self.eval("(integer? 2.0)") is True
+        assert self.eval("(integer? 2.5)") is False
+        assert self.eval("(rational? 1e400)") is False
+        assert self.eval("(real? (* 1+2i 1-2i))") is True
+
+    def test_runtime_arithmetic_errors(self):
+        for code in [
+            "(/ 1 0)",
+            "(quotient 1 0)",
+            "(modulo 1 0)",
+            "(remainder 1 0)",
+            "(expt 0 -1)",
+            "(log 0)",
+        ]:
+            pytest.raises(MiscError, self.eval, code)
 
     def test_booleans_are_not_numbers(self):
         assert self.eval("(number? #t)") is False

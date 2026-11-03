@@ -3,6 +3,7 @@ from ..types.character import Character
 from ..types.pair import Pair as pair
 from ..types.symbol import Symbol as sym
 from ..types.vector import Vector
+from .number import parse_number_text
 
 
 def parse(text, name="__unknown__"):
@@ -47,7 +48,7 @@ class Parser(object):
             self.report_error("Unknown '#' syntax")
 
         def parse_number_or_symbol():
-            if self.isdigit(self.peak(idx=1)):
+            if self.starts_number(idx=1):
                 return self.parse_number()
             return self.parse_symbol()
 
@@ -80,59 +81,25 @@ class Parser(object):
         if routine is not None:
             return routine()
 
-        if self.isdigit(ch):
+        if self.starts_number():
             return self.parse_number()
         return self.parse_symbol()
 
     def parse_number(self):
-        sign1 = 1
-        if self.eat("-"):
-            sign1 = -1
-        self.eat("+")
-
-        num1 = self.parse_unum()
-        if self.eat("/"):
-            num2 = self.parse_unum()
-            if num2 is None:
-                self.report_error("Invalid number format, expecting denominator")
-            if num2 == 0:
-                self.report_error("Invalid number format, denominator cannot be zero")
-            num1 = float(num1) / num2
-        num1 *= sign1
-        if self.peak() in ["+", "-"]:
-            sign2 = 1
-            if self.eat("-"):
-                sign2 = -1
-            self.eat("+")
-            num2 = self.parse_unum()
-            if num2 is None:
-                num2 = 1
-            if not self.eat("i"):
-                self.report_error("Invalid number format, expecting 'i' for complex")
-            if num2 != 0:
-                num1 = num1 + sign2 * num2 * 1j
-
-        return num1
-
-    def parse_unum(self):
-        "Parse an unsigned number."
-        isfloat = False
         pos1 = self.pos
-        while self.isdigit(self.peak()):
+        while self.more() and not self.isdelimiter(self.peak()):
             self.pop()
-        if self.eat("."):
-            isfloat = True
-        while self.isdigit(self.peak()):
-            self.pop()
-        pos2 = self.pos
-        if pos2 == pos1:
-            return None
-        if isfloat:
-            if self.text[pos1:pos2] == ".":
-                self.report_error("Invalid number format")
-            return float(self.text[pos1:pos2])
-        else:
-            return int(self.text[pos1:pos2])
+        try:
+            return parse_number_text(self.text[pos1 : self.pos])
+        except ValueError as error:
+            self.report_error(str(error))
+
+    def starts_number(self, idx=0):
+        "Test whether the text at self.pos + idx starts an unsigned number."
+        ch = self.peak(idx=idx)
+        if self.isdigit(ch):
+            return True
+        return ch == "." and self.isdigit(self.peak(idx=idx + 1))
 
     def parse_list(self):
         self.eat("(")
@@ -291,6 +258,10 @@ class Parser(object):
     def isdigit(self, ch):
         "Test whether ch is a digit."
         return ch is not None and "0" <= ch <= "9"
+
+    def isdelimiter(self, ch):
+        "Test whether ch ends a number token."
+        return self.isspace(ch) or ch in ("(", ")", '"', ";", "'", "`", ",")
 
     def isspace(self, ch):
         "Test whether ch is whitespace."

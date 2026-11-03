@@ -5,6 +5,8 @@ from ..errors import UnboundVariable
 from ..form import Form
 from ..iset import INSN_MAP
 from ..proc import ProcedureTemplate
+from ..types.pair import Pair
+from ..types.vector import Vector
 
 
 class Builder(object):
@@ -181,6 +183,12 @@ class Builder(object):
             # make sure type is the same so that 42 and 42.0 will be
             # different literals
             l = self.literals[i]
+            if l is lit:
+                return i
+            # Mutable objects are only shared by identity, comparing them by
+            # value would merge '(1) and '(1.0), or two distinct constants.
+            if isinstance(lit, (Pair, Vector)):
+                continue
             if type(l) is type(lit) and l == lit:
                 return i
         self.literals.append(lit)

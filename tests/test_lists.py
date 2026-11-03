@@ -51,6 +51,11 @@ class TestLists(HelperVM):
 
     def test_invalid_lists_and_indexes(self):
         pytest.raises(WrongArgType, self.eval, "(length '(a . b))")
+        pytest.raises(
+            WrongArgType,
+            self.eval,
+            "(let ((value (list 1))) (set-cdr! value value) (length value))",
+        )
         pytest.raises(WrongArgType, self.eval, "(list-ref '(a) 1)")
         pytest.raises(WrongArgType, self.eval, "(list-tail '(a) -1)")
 

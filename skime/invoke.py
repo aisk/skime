@@ -1,7 +1,7 @@
 from .call_cc import Continuation
 from .ctx import Context
 from .errors import WrongArgNumber, WrongArgType
-from .prim import Primitive
+from .prim import ApplyPrimitive, Primitive
 from .proc import Procedure
 from .types.pair import Pair
 
@@ -36,6 +36,12 @@ class ContextTransfer(BaseException):
 
 def invoke(proc, args, parent, vm):
     """Prepare or perform one call through the shared VM calling convention."""
+    # Expand apply here instead of calling back into the VM, so that a
+    # procedure invoked through apply runs in the caller's frame and apply in
+    # tail position stays a proper tail call.
+    while isinstance(proc, ApplyPrimitive):
+        proc, args = proc.spread(args)
+
     if isinstance(proc, Procedure):
         proc.check_arity(len(args))
         ctx = Context(proc, proc.env.dup(), parent)

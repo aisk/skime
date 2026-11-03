@@ -16,7 +16,9 @@ class Vector(object):
         return len(self.elements)
 
     def __str__(self):
-        return "#(" + " ".join(str(element) for element in self.elements) + ")"
+        from ..printer import scheme_write
+
+        return scheme_write(self)
 
     def __repr__(self):
         return "Vector(%r)" % self.elements

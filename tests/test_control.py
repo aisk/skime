@@ -114,3 +114,23 @@ class TestContinuations:
             vm.eval_string("(call/cc (lambda (continuation) (continuation)))")
         with pytest.raises(WrongArgNumber):
             vm.eval_string("(call/cc (lambda (continuation) (continuation 1 2)))")
+
+
+class TestDeepCalls(HelperVM):
+    def test_apply_in_tail_position_is_a_tail_call(self):
+        assert self.eval("""
+            (begin
+              (define (count n)
+                (if (= n 0) 'done (apply count (list (- n 1)))))
+              (count 100000))
+            """) == self.eval("'done")
+
+    def test_recursion_through_map_does_not_use_python_stack(self):
+        assert self.eval("""
+            (begin
+              (define (depth n)
+                (if (= n 0)
+                    0
+                    (+ 1 (car (map (lambda (x) (depth (- n 1))) '(1))))))
+              (depth 5000))
+            """) == 5000

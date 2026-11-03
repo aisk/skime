@@ -38,6 +38,16 @@ class TestNumber(object):
         assert p("1/3") == pytest.approx(1.0 / 3)
         pytest.raises(ParseError, p, "1/0")
 
+    def test_exponent(self):
+        assert p("1e3") == pytest.approx(1000.0)
+        assert p("-2.5E-1") == pytest.approx(-0.25)
+        assert p(".5") == pytest.approx(0.5)
+        assert p("(1e3)") == pair(1000.0, None)
+
+    def test_invalid_number_token(self):
+        pytest.raises(ParseError, p, "(list 1abc)")
+        pytest.raises(ParseError, p, "1.2.3")
+
 
 class TestString(object):
     def test_string(self):

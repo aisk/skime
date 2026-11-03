@@ -9,6 +9,7 @@ except ImportError:
 from skime.compiler.compiler import Compiler
 from skime.compiler.parser import parse
 from skime.errors import Error
+from skime.printer import scheme_write
 from skime.vm import VM
 
 
@@ -24,9 +25,11 @@ def main():
             return
         try:
             proc = compiler.compile(parse(code), vm.env)
-            print("=>", vm.run(proc))
+            print("=>", scheme_write(vm.run(proc)))
         except Error as e:
             print("!>", e)
+        except RecursionError:
+            print("!> Maximum recursion depth exceeded")
 
 
 if __name__ == "__main__":

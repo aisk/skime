@@ -11,7 +11,7 @@ def disasm(io, form):
         io.write("%04X " % ip)
         instr = INSTRUCTIONS[bytecode[ip]]
         io.write("%20s " % instr.name)
-        if instr.name in ["push_local", "set_local"]:
+        if instr.name in ["push_local", "set_local", "define_local"]:
             io.write("idx: %d" % bytecode[ip + 1])
             io.write(", name: ")
             io.write(env.get_name(bytecode[ip + 1]))

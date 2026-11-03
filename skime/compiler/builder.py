@@ -117,7 +117,7 @@ class Builder(object):
 
         # generate_proc is a pseudo instruction
         self.stream.append(("generate_proc", bdr))
-        self.ip += 3  # push_literal + fix_lexical (2+1)
+        self.ip += 2  # push_literal (opcode + literal index)
 
         return bdr
 
@@ -154,15 +154,22 @@ class Builder(object):
     def find_local_depth(self, name, env):
         """\
         Find the depth and index of a local variable. If no variable
-        with the given name is found, return (None, None).
+        with the given name is found, reserve a slot in the root environment.
         """
         depth = 0
-        while env is not None:
-            idx = env.find_local(name)
+        cur = env
+        root_env = env
+        root_depth = 0
+        while cur is not None:
+            idx = cur.find_local(name)
             if idx is not None:
                 return (depth, idx)
+            root_env = cur
+            root_depth = depth
             depth += 1
-            env = env.parent
+            cur = cur.parent
+        if root_env is not None:
+            return (root_depth, root_env.reserve_local(name))
         return (None, None)
 
     def get_literal_idx(self, lit):

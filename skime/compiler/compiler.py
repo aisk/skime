@@ -112,18 +112,20 @@ class Compiler(object):
     def predeclare_definitions(self, bdr, body):
         while isinstance(body, pair):
             expression = body.first
-            if (
-                not isinstance(expression, pair)
-                or expression.first != Compiler.sym_define
-                or not isinstance(expression.rest, pair)
-            ):
-                return
-            target = expression.rest.first
-            if isinstance(target, pair):
-                target = target.first
-            if not isinstance(target, sym):
-                raise SyntaxError("Invalid define expression")
-            bdr.def_local(target.name)
+            if isinstance(expression, pair):
+                if expression.first == Compiler.sym_define and isinstance(
+                    expression.rest, pair
+                ):
+                    target = expression.rest.first
+                    if isinstance(target, pair):
+                        target = target.first
+                    if isinstance(target, SymbolClosure):
+                        target = target.expression
+                    if not isinstance(target, sym):
+                        raise SyntaxError("Invalid define expression")
+                    bdr.def_local(target.name)
+                elif expression.first == Compiler.sym_begin:
+                    self.predeclare_definitions(bdr, expression.rest)
             body = body.rest
 
     def generate_expr(self, bdr, expr, keep=True, tail=False):
@@ -467,7 +469,7 @@ class Compiler(object):
 
         for i in range(len(names)):
             self.generate_expr(lambda_bdr, vals[i], keep=True, tail=False)
-            lambda_bdr.emit_local("set", names[i])
+            lambda_bdr.emit_local("define", names[i])
 
         self.generate_body(lambda_bdr, body, keep=True, tail=True)
         bdr.emit("fix_lexical")
@@ -515,7 +517,7 @@ class Compiler(object):
         for i in range(len(names)):
             lambda_bdr.def_local(names[i])
             self.generate_expr(lambda_bdr, vals[i], keep=True, tail=False)
-            lambda_bdr.emit_local("set", names[i])
+            lambda_bdr.emit_local("define", names[i])
 
         self.generate_body(lambda_bdr, body, keep=True, tail=True)
         bdr.emit("fix_lexical")
@@ -540,6 +542,8 @@ class Compiler(object):
             gen = self.generate_lambda
             val = pair(var.rest, expr.rest)
             var = var.first
+            if isinstance(var, SymbolClosure):
+                var = var.expression
         elif isinstance(var, sym):
             gen = self.generate_expr
             val = expr.rest
@@ -560,7 +564,7 @@ class Compiler(object):
         gen(bdr, val, keep=True, tail=False)
         if keep is True:
             bdr.emit("dup")
-        bdr.emit_local("set", var.name)
+        bdr.emit_local("define", var.name)
         if tail:
             bdr.emit("ret")
 

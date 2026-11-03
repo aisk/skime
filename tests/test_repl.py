@@ -15,3 +15,34 @@ def test_repl_exits_cleanly_when_input_is_interrupted(monkeypatch, capsys, excep
     main()
 
     assert capsys.readouterr().out == "Welcome to Skime!\n\n"
+
+
+def test_repl_reports_errors_and_continues(monkeypatch, capsys):
+    inputs = iter(
+        [
+            "(#x)",
+            "²",
+            "(define (q n) (if (= n 0) 0 (let () (q (- n 1)))))",
+            "(q 1)",
+            "(define (even-v? n) (if (= n 0) #t (odd-v? (- n 1))))",
+            "(define (odd-v? n) (if (= n 0) #f (even-v? (- n 1))))",
+            "(even-v? 4)",
+        ]
+    )
+
+    def fake_input(_prompt):
+        try:
+            return next(inputs)
+        except StopIteration:
+            raise EOFError
+
+    monkeypatch.setattr(builtins, "input", fake_input)
+
+    main()
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "Welcome to Skime!"
+    assert lines[1].startswith("!> ")
+    assert lines[2] == "!> Unbound variable ²"
+    assert lines[4] == "=> 0"
+    assert lines[7] == "=> True"

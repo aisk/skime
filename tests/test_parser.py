@@ -59,12 +59,19 @@ class TestSymbol(object):
         assert p("string->number") == sym("string->number")
         assert p("number?") == sym("number?")
         assert p("...") == sym("...")
+        assert p("²") == sym("²")
+        assert p("+²") == sym("+²")
 
 
 class TestBool(object):
     def test_bool(self):
         assert p("#t") is True
         assert p("#f") is False
+
+    def test_invalid_pound(self):
+        pytest.raises(ParseError, p, "#")
+        pytest.raises(ParseError, p, "#x")
+        pytest.raises(ParseError, p, "(#x)")
 
 
 class TestVector(object):

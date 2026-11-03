@@ -114,6 +114,19 @@ class TestSyntax(HelperVM):
                  10)
                 """) is True
 
+    def test_mutually_recursive_top_level_definitions(self):
+        vm = VM()
+        vm.eval_string("(define (even-value? n) (if (= n 0) #t (odd-value? (- n 1))))")
+        pytest.raises(UnboundVariable, vm.eval_string, "(even-value? 1)")
+        vm.eval_string("(define (odd-value? n) (if (= n 0) #f (even-value? (- n 1))))")
+        assert vm.eval_string("(even-value? 10)") is True
+        assert vm.eval_string("(odd-value? 10)") is False
+
+    def test_if_else_with_let_in_recursive_procedure(self):
+        vm = VM()
+        vm.eval_string("(define (q n) (if (= n 0) 0 (let () (q (- n 1)))))")
+        assert vm.eval_string("(q 1)") == 0
+
     def test_set_x(self):
         assert self.eval("""
         (begin

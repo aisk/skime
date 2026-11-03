@@ -97,7 +97,22 @@ instructions:
     code: |
       idx = get_param(ctx, 1)
       loc = ctx.env.read_local(idx)
+      if loc is Undef():
+          name = ctx.env.get_name(idx)
+          raise UnboundVariable(name, "Unbound variable %s" % name)
       ctx.push(loc)
+
+  -
+    name: define_local
+    tags: []
+    desc: Pop the stack top and define a local variable.
+    operands: [local]
+    stack_before: [value]
+    stack_after: []
+    code: |
+      idx = get_param(ctx, 1)
+      val = ctx.pop()
+      ctx.env.assign_local(idx, val)
 
   -
     name: set_local
@@ -109,6 +124,9 @@ instructions:
     code: |
       idx = get_param(ctx, 1)
       val = ctx.pop()
+      if ctx.env.read_local(idx) is Undef():
+          name = ctx.env.get_name(idx)
+          raise UnboundVariable(name, "Unbound variable %s" % name)
       ctx.env.assign_local(idx, val)
 
   -
@@ -127,6 +145,9 @@ instructions:
           penv = penv.parent
           depth -= 1
       loc = penv.read_local(idx)
+      if loc is Undef():
+          name = penv.get_name(idx)
+          raise UnboundVariable(name, "Unbound variable %s" % name)
       ctx.push(loc)
 
   -
@@ -145,6 +166,9 @@ instructions:
       while depth > 0:
           penv = penv.parent
           depth -= 1
+      if penv.read_local(idx) is Undef():
+          name = penv.get_name(idx)
+          raise UnboundVariable(name, "Unbound variable %s" % name)
       penv.assign_local(idx, value)
 
   -
@@ -332,6 +356,9 @@ instructions:
       value = ctx.pop()
 
       env = sym_closure.lexical_parent
+      if env.read_local(idx) is Undef():
+          name = env.get_name(idx)
+          raise UnboundVariable(name, "Unbound variable %s" % name)
       env.assign_local(idx, value)
 
   -
@@ -351,4 +378,7 @@ instructions:
       while depth > 0:
           env = env.parent
           depth -= 1
+      if env.read_local(idx) is Undef():
+          name = env.get_name(idx)
+          raise UnboundVariable(name, "Unbound variable %s" % name)
       env.assign_local(idx, value)

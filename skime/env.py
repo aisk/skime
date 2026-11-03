@@ -60,6 +60,8 @@ class Environment(object):
         self.locals_name = []
         # The mapping from name to index
         self.locals_map = {}
+        # Forward-referenced local variable names not yet defined
+        self.unbound_locals = set()
 
     def dup(self):
         """\
@@ -69,6 +71,7 @@ class Environment(object):
         env.locals = list(self.locals)
         env.locals_name = list(self.locals_name)
         env.locals_map = dict(self.locals_map)
+        env.unbound_locals = set(self.unbound_locals)
         return env
 
     def assign_local(self, idx, value):
@@ -76,6 +79,8 @@ class Environment(object):
         Assign value to the local variable stored at idx.
         """
         self.locals[idx] = value
+        if value is not Undef():
+            self.unbound_locals.discard(self.locals_name[idx])
 
     def read_local(self, idx):
         """\
@@ -92,6 +97,7 @@ class Environment(object):
         is OK. They will be stored at the same location, and
         value assigned later will overwrite earlier values.
         """
+        self.unbound_locals.discard(name)
         idx = self.locals_map.get(name)
         if idx is not None:
             if value is not Undef():
@@ -101,6 +107,21 @@ class Environment(object):
         self.locals_name.append(name)
         self.locals.append(value)
         self.locals_map[name] = idx
+        return idx
+
+    def reserve_local(self, name):
+        """\
+        Reserve a slot for a forward-referenced variable without marking
+        it as lexically defined yet.
+        """
+        idx = self.locals_map.get(name)
+        if idx is not None:
+            return idx
+        idx = len(self.locals)
+        self.locals_name.append(name)
+        self.locals.append(Undef())
+        self.locals_map[name] = idx
+        self.unbound_locals.add(name)
         return idx
 
     def find_local(self, name):
@@ -126,7 +147,7 @@ class Environment(object):
         env = self
         while env is not None:
             idx = env.find_local(name)
-            if idx is not None:
+            if idx is not None and name not in env.unbound_locals:
                 return Location(env, idx)
             env = env.parent
         return None

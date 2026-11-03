@@ -44,6 +44,7 @@ class Parser(object):
                 return self.parse_vector()
             if self.peak(idx=1) == "\\":
                 return self.parse_character()
+            self.report_error("Unknown '#' syntax")
 
         def parse_number_or_symbol():
             if self.isdigit(self.peak(idx=1)):
@@ -127,6 +128,8 @@ class Parser(object):
         if pos2 == pos1:
             return None
         if isfloat:
+            if self.text[pos1:pos2] == ".":
+                self.report_error("Invalid number format")
             return float(self.text[pos1:pos2])
         else:
             return int(self.text[pos1:pos2])
@@ -287,7 +290,7 @@ class Parser(object):
 
     def isdigit(self, ch):
         "Test whether ch is a digit."
-        return ch is not None and ch.isdigit()
+        return ch is not None and "0" <= ch <= "9"
 
     def isspace(self, ch):
         "Test whether ch is whitespace."
